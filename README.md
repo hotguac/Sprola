@@ -1,2 +1,2 @@
 # Sprola
-Signal PROcessing Language (Sprola)
+Signal PROcessing LAnguage (Sprola)
