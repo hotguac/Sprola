@@ -2,33 +2,53 @@
 %{
 #include <stdio.h>
 
-int yylex();
-
+extern int yylex();
+extern int yyparse();
 extern FILE * yyin;
+extern int yylineno;
 
 void yyerror(char const*);
 %}
 
-/*
+
 %union {
-  float f;
-  double d;
-  int i;
-  char* str;
+  float fval;
+  double dval;
+  int ival;
+  char* sval;
 }
-*/
+
 
 /* declare tokens */
 %token IDENTIFIER
-%token KEYWORD_MAIN
-%token INTEGER
-%token WHITESPACE
+%token FUNC MAIN
+%token EOL
+%token OP CP OCB CCB OBK CBK
+
+%token <ival> INTEGER
 
 %%
 
 start: /* nothing : to match beginning of input */
- | start KEYWORD_MAIN { printf("found main\n"); }
+ | start func_main empty_params code_block { printf("found main %d\n", yylineno); }
  ;
+
+func_main: FUNC MAIN { printf("found FUNC MAIN %d\n", yylineno); }
+  ;
+
+empty_params: OP CP { printf("found () %d\n", yylineno); }
+  ;
+
+code_block: OCB CCB { printf("found code_block\n"); }
+  | OCB statements CCB { printf("found code_block\n"); }
+  ;
+
+statements: statement { printf("found a statement\n"); }
+  | statements statement { printf("found a group statements\n"); }
+  ;
+
+statement: IDENTIFIER { printf("found a statement\n"); }
+  ;
 
 %%
 int main(int argc, char **argv)
