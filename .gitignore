@@ -6,6 +6,7 @@ lex.yy.c
 
 # Bison generated output
 sprola.tab.*
+sprola.output
 
 # Sprola executable
 sprola
