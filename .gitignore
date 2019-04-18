@@ -1,6 +1,16 @@
 # Prerequisites
 *.d
 
+# Flex generated output
+lex.yy.c
+
+# Bison generated output
+sprola.tab.*
+sprola.output
+
+# Sprola executable
+sprola
+
 # Compiled Object files
 *.slo
 *.lo
