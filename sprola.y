@@ -2,27 +2,37 @@
 
 %{
 #include <stdio.h>
+#include <string.h>
+#include "ast.h"
 
+/* These external routines are defined in or generated from sprola.l */
 extern int yylex();
 extern int yyparse();
 extern FILE * yyin;
 extern int yylineno;
 extern char *yytext;
 
-extern char *current_filename;
-extern void printrefs();
+char *current_filename;   // read source from here
+char *output_filename;    // write .ll output here
 
+extern void printrefs();
+extern void emit_code(struct ast *a);
+
+/* Forward declaration for routines defined below in code section */
 void yyerror(char const*);
+
 %}
 
+/* These are the possible value types returned by the lexer for tokens */
 %union {
   float fval;
   double dval;
   int ival;
   char* sval;
+  struct ast *a;
 }
 
-/* declare tokens */
+/* --------  declare tokens  ----------------------------------*/
 %token OPTION
 %token IDENTIFIER
 %token FUNC
@@ -35,26 +45,35 @@ void yyerror(char const*);
 
 %token <ival> INTEGER
 
+%type <a> statements statement
 %%
+/*----------------------------------------------------------------------------*/
+/*  Start of rules section                                                    */
+/*----------------------------------------------------------------------------*/
 
-program: /* */
- | functions         { printf("no options, just functions\n"); printrefs(); }
- | options functions  { printf("options and functions\n"); printrefs(); }
+program: statements  { printrefs(); printf(">>>\n"); emit_code($<a>1); }
  ;
 
-options: /* nothing to match beginning of input */
- | options OPTION IDENTIFIER { printf("Looks like we're building an LV2 Plugin!\n"); }
+statements: /* */
+ | statements statement { $$ = newnum(2); }
  ;
 
-functions: /* nothing : to match beginning of input */
- | functions function params code_block { printf("found main %d\n", yylineno); }
+statement: assignment
+   | reference '=' INTEGER { /* */ }
+   | function { /* */ }
+   | option { /* */ }
+   ;
+
+assignment: IDENTIFIER '=' INTEGER { /* */ }
+
+option: OPTION IDENTIFIER { /* */ }
  ;
 
-function: FUNC IDENTIFIER { printf("found FUNC on line %d\n", yylineno); }
-  ;
+function: FUNC IDENTIFIER params code_block { /* */ }
+ ;
 
-params: OP CP { printf("found () %d\n", yylineno); }
-    | OP param_list CP { printf("found () %d\n", yylineno); }
+params: OP CP { /* */ }
+    | OP param_list CP { /* */ }
     ;
 
 param_list: param_list COMMA parameter { /* */ }
@@ -64,28 +83,25 @@ param_list: param_list COMMA parameter { /* */ }
 type: TYPE { /* */ }
     ;
 
-parameter: IDENTIFIER COLON type { printf("declared parameter\n"); }
+parameter: IDENTIFIER COLON type { /* */ }
     ;
 
-code_block: OCB CCB { printf("found code_block\n"); }
-  | OCB statements CCB { printf("found code_block\n"); }
+code_block: OCB CCB { /* */ }
+  | OCB statements CCB { /* */ }
   ;
 
-reference: IDENTIFIER DOT IDENTIFIER
-  ;
-
-statements: statement { printf("found a statement\n"); }
-  | statements statement { printf("found a group statements\n"); }
-  ;
-
-statement: IDENTIFIER '=' INTEGER { printf("found a statement\n"); }
-  | reference '=' INTEGER { printf("found a statement\n"); }
+reference: IDENTIFIER DOT IDENTIFIER { /* */ }
   ;
 
 %%
+/*----------------------------------------------------------------------------*/
+/*  Start of code section                                                    */
+/*----------------------------------------------------------------------------*/
 
 int main(int argc, char **argv)
 {
+  static const char *default_input = "stdin";
+  static const char *default_output = "default_output.ll";
 
   if (argc > 1) {
     current_filename = argv[1];
@@ -94,6 +110,14 @@ int main(int argc, char **argv)
       perror(argv[1]);
       return (1);
     }
+  } else {
+    current_filename = strdup(default_input);
+  }
+
+  if (argc > 2) {
+    output_filename = argv[2];
+  } else {
+    output_filename = strdup(default_output);
   }
 
   yyparse();
