@@ -22,27 +22,14 @@ extern char *current_filename;   // read source from here
 
 %%
 
-[ \t]   ;
+[ \t\n]   ;
 
-\n        { /* ++yylineno; */ }
-"func"    { yylval.sval = strdup(yytext); return FUNC; }
-"("       { return OP; }
-")"       { return CP; }
-"{"       { return OCB; }
-"}"       { return CCB; }
-"["       { return OBK; }
-"]"       { return CBK; }
-"."       { return DOT; }
-":"       { return COLON; }
-","       { return COMMA; }
-"float"   { yylval.sval = strdup(yytext); return TYPE; }
-
-"sample"  { yylval.sval = strdup(yytext); return TYPE; }
-
-"%option" { return OPTION; }
+"="       { return EQUAL; }
 
 [0-9]+    { yylval.ival = atoi(yytext); return INTEGER; }
+
 [_a-zA-Z][a-zA-Z0-9_]* { addref(yylineno, current_filename, yytext, 0);
+                          yylval.s = lookup(yytext);
                           return IDENTIFIER; }
 
 "//".*    { /* ignore comments for now */ }

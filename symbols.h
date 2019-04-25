@@ -1,7 +1,7 @@
 #ifndef __SYMBOLS__
 #define __SYMBOLS__
 
-#define NHASH 9997
+#define NHASH 17
 
 enum symbol_type {FUNCTION_NAME, VARIABLE_NAME, MEMBER_NAME};
 

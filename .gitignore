@@ -11,6 +11,9 @@ sprola.output
 # Sprola executable
 sprola
 
+# Sprola default output
+default_output.ll
+
 # Compiled Object files
 *.slo
 *.lo

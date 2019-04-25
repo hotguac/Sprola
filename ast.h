@@ -4,7 +4,6 @@
 
 #include "symbols.h"
 
-/* simple symtab of fixed size */
 extern struct symbol *lookup(char*);
 
 struct symlist *newsymlist(struct symbol *sym, struct symlist *next);
@@ -23,6 +22,12 @@ void symlistfree(struct symlist *sl);
  *  F built in function call
  *  C user function call
  */
+enum node_types {
+  N_assignment = '=',
+  N_integer = 'i',
+  N_symbol_ref = 'r',
+  N_statement_list = 'L'
+};
 
 enum bifs {			/* built-in functions */
   B_sqrt = 1,
@@ -35,55 +40,31 @@ enum bifs {			/* built-in functions */
 /* all have common initial nodetype */
 
 struct ast {
-  int nodetype;
+  enum node_types nodetype;
   struct ast *l;
   struct ast *r;
 };
 
-struct fncall {			/* built-in function */
-  int nodetype;			/* type F */
-  struct ast *l;
-  enum bifs functype;
-};
-
-struct ufncall {		/* user function */
-  int nodetype;			/* type C */
-  struct ast *l;		/* list of arguments */
-  struct symbol *s;
-};
-
-struct flow {
-  int nodetype;			/* type I or W */
-  struct ast *cond;		/* condition */
-  struct ast *tl;		/* then or do list */
-  struct ast *el;		/* optional else list */
-};
-
-struct numval {
-  int nodetype;			/* type K */
-  double number;
+struct intval {
+  enum node_types nodetype;			/* type N_integer */
+  int number;
 };
 
 struct symref {
-  int nodetype;			/* type N */
+  enum node_types nodetype;			/* type N_symbol_ref */
   struct symbol *s;
 };
 
 struct symasgn {
-  int nodetype;			/* type = */
+  enum node_types nodetype;			/* type = N_assignment */
   struct symbol *s;
   struct ast *v;		/* value */
 };
 
 /* build an AST */
-struct ast *newast(int nodetype, struct ast *l, struct ast *r);
-struct ast *newcmp(int cmptype, struct ast *l, struct ast *r);
-struct ast *newfunc(enum bifs functype, struct ast *l);
-struct ast *newcall(struct symbol *s, struct ast *l);
-struct ast *newref(struct symbol *s);
+struct ast *newast(enum node_types nodetype, struct ast *l, struct ast *r);
 struct ast *newasgn(struct symbol *s, struct ast *v);
-struct ast *newnum(double d);
-struct ast *newflow(int nodetype, struct ast *cond, struct ast *tl, struct ast *tr);
+struct ast *newint(int d);
 
 /* define a function */
 void dodef(struct symbol *name, struct symlist *syms, struct ast *stmts);

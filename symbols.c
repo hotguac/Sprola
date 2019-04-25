@@ -26,20 +26,20 @@ struct symbol *lookup(char* sym)
   int scount = NHASH;
 
   while (--scount >= 0) {
-    if (sp->name && !strcmp(sp->name, sym)) {
+    if (sp->name && !strcmp(sp->name, sym)) { // Got a match
       return sp;
     }
 
-    if (!sp->name) {
+    if (!sp->name) { //  This slot is available
       sp->name = strdup(sym);
       sp->reflist = 0;
       return sp;
     }
 
-    if (++sp >= symtab+NHASH) {
+    if (++sp >= symtab+NHASH) { // Wrap back to beginning to find empty slot
       sp = symtab;
     }
-  } /* end while */
+  }
 
   fputs("Symbol table overflow\n", stderr);
   abort();
@@ -47,6 +47,8 @@ struct symbol *lookup(char* sym)
 
 void addref(int lineno, char *filename, char *word, int flags)
 {
+  printf("\t\t addref %d, %s, %s, %d\n", lineno, filename, word, flags);
+
   struct ref *r;
   struct symbol *sp = lookup(word);
 
@@ -93,6 +95,8 @@ static int symcompare(const void *xa, const void *xb)
 
 void printrefs()
 {
+  printf("Symbol References:\n");
+  
   struct symbol *sp;
 
   /* sort the symbol table */

@@ -17,6 +17,7 @@ char *output_filename;    // write .ll output here
 
 extern void printrefs();
 extern void emit_code(struct ast *a);
+extern struct symbol *lookup(char* sym);
 
 /* Forward declaration for routines defined below in code section */
 void yyerror(char const*);
@@ -25,72 +26,59 @@ void yyerror(char const*);
 
 /* These are the possible value types returned by the lexer for tokens */
 %union {
-  float fval;
-  double dval;
   int ival;
   char* sval;
   struct ast *a;
+  struct symbol *s;
 }
 
 /* --------  declare tokens  ----------------------------------*/
 %token OPTION
 %token IDENTIFIER
 %token FUNC
-%token EOL
-%token OP CP OCB CCB OBK CBK
 %token TYPE
+
+%token OP "("
+%token CP ")"
+%token OCB "{"
+%token CCB "}"
 %token COMMA ","
 %token COLON ":"
 %token DOT "."
+%token EQUAL "="
 
 %token <ival> INTEGER
 
-%type <a> statements statement
+%type <a> statements statement assignment expression
+
+%type <s> IDENTIFIER
+
+%debug
+%start program
+
 %%
 /*----------------------------------------------------------------------------*/
 /*  Start of rules section                                                    */
 /*----------------------------------------------------------------------------*/
 
-program: statements  { printrefs(); printf(">>>\n"); emit_code($<a>1); }
- ;
-
-statements: /* */
- | statements statement { $$ = newnum(2); }
- ;
-
-statement: assignment
-   | reference '=' INTEGER { /* */ }
-   | function { /* */ }
-   | option { /* */ }
-   ;
-
-assignment: IDENTIFIER '=' INTEGER { /* */ }
-
-option: OPTION IDENTIFIER { /* */ }
- ;
-
-function: FUNC IDENTIFIER params code_block { /* */ }
- ;
-
-params: OP CP { /* */ }
-    | OP param_list CP { /* */ }
-    ;
-
-param_list: param_list COMMA parameter { /* */ }
-  | parameter { /* */ }
+program: statements  {  printrefs();
+                        printf(">>>\nDump AST\n");
+                        dumpast($1,1);
+                        printf(">>>\n");
+                        emit_code($<a>1); }
   ;
 
-type: TYPE { /* */ }
-    ;
-
-parameter: IDENTIFIER COLON type { /* */ }
-    ;
-
-code_block: OCB CCB { /* */ }
-  | OCB statements CCB { /* */ }
+statements: %empty { $$ = NULL; }
+  | statements statement { $$ = newast(N_statement_list, $1, $2); }
   ;
 
-reference: IDENTIFIER DOT IDENTIFIER { /* */ }
+statement: assignment { $$ = $1; }
+  ;
+
+assignment: IDENTIFIER "=" expression { $$ = newasgn($1, $3); }
+  ;
+
+expression: INTEGER { $$ = newint($1); }
   ;
 
 %%
