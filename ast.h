@@ -6,27 +6,17 @@
 
 extern struct symbol *lookup(char*);
 
-struct symlist *newsymlist(struct symbol *sym, struct symlist *next);
-void symlistfree(struct symlist *sl);
-
-/* node types
- *  + - * / |
- *  0-7 comparison ops, bit coded 04 equal, 02 less, 01 greater
- *  M unary minus
- *  L statement list
- *  I IF statement
- *  W WHILE statement
- *  N symbol ref
- *  = assignment
- *  S list of symbols
- *  F built in function call
- *  C user function call
- */
 enum node_types {
   N_assignment = '=',
   N_integer = 'i',
   N_symbol_ref = 'r',
-  N_statement_list = 'L'
+  N_statement_list = 'L',
+  N_add = '+',
+  N_subtract = '-',
+  N_multiply = '*',
+  N_divide = '/',
+  N_scope = 'S',
+  N_negate
 };
 
 enum bifs {			/* built-in functions */
@@ -65,12 +55,6 @@ struct symasgn {
 struct ast *newast(enum node_types nodetype, struct ast *l, struct ast *r);
 struct ast *newasgn(struct symbol *s, struct ast *v);
 struct ast *newint(int d);
-
-/* define a function */
-void dodef(struct symbol *name, struct symlist *syms, struct ast *stmts);
-
-/* evaluate an AST */
-double eval(struct ast *);
 
 /* delete and free an AST */
 void treefree(struct ast *);

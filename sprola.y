@@ -29,29 +29,40 @@ void yyerror(char const*);
   int ival;
   char* sval;
   struct ast *a;
-  struct symbol *s;
+  struct symbol *sym;
 }
 
 /* --------  declare tokens  ----------------------------------*/
-%token OPTION
-%token IDENTIFIER
-%token FUNC
-%token TYPE
+%token KW_For "for"
+%token KW_To "to"
 
-%token OP "("
-%token CP ")"
-%token OCB "{"
-%token CCB "}"
-%token COMMA ","
-%token COLON ":"
-%token DOT "."
-%token EQUAL "="
+%token T_Option
+%token T_Id
+%token T_Type
+%token T_Audio_In
+%token T_Audio_Out
+%token T_Control_In
 
-%token <ival> INTEGER
+%token T_OpenP "("
+%token T_CloseP ")"
+%token T_OpenCB "{"
+%token T_CloseCB "}"
+%token T_Equal "="
+%token T_OpenBr "["
+%token T_CloseBR "]"
 
-%type <a> statements statement assignment expression
+%token T_Plus "+"
+%token T_Minus "-"
 
-%type <s> IDENTIFIER
+%token T_Semicolon ";"
+
+%token <ival> T_Integer
+
+%type <a> statements statement assignment options
+%type <a> factor term expr expra function code_block
+%type <a> functions variable_declaration variable_declarations
+
+%type <sym> T_Id array_reference
 
 %debug
 %start program
@@ -61,24 +72,134 @@ void yyerror(char const*);
 /*  Start of rules section                                                    */
 /*----------------------------------------------------------------------------*/
 
-program: statements  {  printrefs();
-                        printf(">>>\nDump AST\n");
-                        dumpast($1,1);
-                        printf(">>>\n");
-                        emit_code($<a>1); }
+program
+  : options variable_declarations functions
+    {
+      printrefs();
+      printf(">>>\nDump AST\n");
+      dumpast($3,1);
+      printf(">>>\n");
+      emit_code($<a>1);
+  }
+  | options functions
+    {
+      printrefs();
+      printf(">>>\nDump AST: options functions\n");
+      dumpast($2,1);
+      printf(">>>\n");
+      emit_code($<a>1);
+    }
+  | variable_declarations functions
+    {
+      printrefs();
+      printf(">>>\nDump AST\n");
+      dumpast($2,1);
+      printf(">>>\n");
+      emit_code($<a>1);
+    }
+  | functions
+    {
+      printrefs();
+      printf(">>>\nDump AST\n");
+      dumpast($1,1);
+      printf(">>>\n");
+      emit_code($<a>1);
+    }
   ;
 
-statements: %empty { $$ = NULL; }
-  | statements statement { $$ = newast(N_statement_list, $1, $2); }
+options
+  : options option { /* */ }
+  | option  { /* */ }
   ;
 
-statement: assignment { $$ = $1; }
+option
+  : T_Option T_Audio_In T_Id { /* */ }
+  | T_Option T_Audio_Out T_Id { /* */ }
+  | T_Option T_Control_In T_Id { /* */ }
   ;
 
-assignment: IDENTIFIER "=" expression { $$ = newasgn($1, $3); }
+variable_declarations
+  : variable_declarations variable_declaration { /* */ }
+  | variable_declaration { /* */ }
   ;
 
-expression: INTEGER { $$ = newint($1); }
+variable_declaration
+  : T_Type T_Id T_Semicolon { /* */ }
+  ;
+
+functions
+  : functions function
+    {
+      $$ = $2;
+      printf("dumpast functions function\n");
+      dumpast($2, 1);
+    }
+  | function
+    {
+      $$ = $1;
+      printf("dumpast function\n");
+      dumpast($1, 1);
+    }
+  ;
+
+function
+  : T_Type T_Id T_OpenP T_CloseP code_block  { $$ = $5; }
+  ;
+
+code_block
+  : T_OpenCB variable_declarations statements T_CloseCB
+    {
+      $$ = newast(N_scope, $2, $3);
+    }
+  | T_OpenCB statements T_CloseCB  { $$ = $2; }
+  | T_OpenCB T_CloseCB { $$ = NULL; }
+  ;
+
+statements
+  : statements statement { $$ = newast(N_statement_list, $1, $2);  }
+  | statement { $$ = $1; }
+  ;
+
+statement
+  : assignment T_Semicolon { $$ = $1; }
+  | for_statement { printf("\t\t\t***statement: for_statement\n"); }
+  ;
+
+assignment
+  : T_Id T_Equal expr { $$ = newasgn($1, $3); }
+  | array_reference T_Equal expr { $$ = newasgn($1, $3); }
+  ;
+
+array_reference
+  : T_Id T_OpenBr expr T_CloseBR { $$ = $1; }
+  ;
+
+for_statement
+  : KW_For T_OpenP T_Id T_Equal T_Integer KW_To expr T_CloseP code_block { /* */}
+  ;
+
+expr
+  : expra { $$ = $1; }
+  ;
+
+expra
+  : expra T_Plus term   { $$ = newast(N_add, $1, $3); }
+  | expra T_Minus term  { $$ = newast(N_subtract, $1, $3); }
+  | term  { $$ = $1; }
+  ;
+
+term
+  : term '*' factor   { $$ = newast(N_multiply, $1, $3); }
+  | term '/' factor  { $$ = newast(N_divide, $1, $3); }
+  | factor { $$ = $1; }
+  ;
+
+factor
+  : T_OpenP expr T_CloseP  { $$ = $2; }
+  | T_Minus factor    { $$ = newast(N_negate, $2, NULL); }
+  | T_Integer         { $$ = newint($1); }
+  | T_Id              { $$ = (struct ast *)$1; }
+  | array_reference   { $$ = (struct ast *)$1; }
   ;
 
 %%

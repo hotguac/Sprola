@@ -24,15 +24,36 @@ extern char *current_filename;   // read source from here
 
 [ \t\n]   ;
 
-"="       { return EQUAL; }
+^"%option" { return T_Option; }
+"Audio_In"  { return T_Audio_In; }
+"Audio_Out" { return T_Audio_Out; }
+"Control_In" { return T_Control_In; }
 
-[0-9]+    { yylval.ival = atoi(yytext); return INTEGER; }
+"void" { yylval.sval = strdup(yytext); return T_Type; }
+"int" { yylval.sval = strdup(yytext); return T_Type; }
 
-[_a-zA-Z][a-zA-Z0-9_]* { addref(yylineno, current_filename, yytext, 0);
-                          yylval.s = lookup(yytext);
-                          return IDENTIFIER; }
+"for" { return KW_For; }
+"to" { return KW_To; }
+
+"="       { return T_Equal; }
+"-"       { return T_Minus; }
+"+"       { return T_Plus; }
+"("       { return T_OpenP; }
+")"       { return T_CloseP; }
+"{"       { return T_OpenCB; }
+"}"       { return T_CloseCB; }
+"["       { return T_OpenBr; }
+"]"       { return T_CloseBR; }
+";"       { return T_Semicolon; }
+
+[0-9]+    { yylval.ival = atoi(yytext); return T_Integer; }
 
 "//".*    { /* ignore comments for now */ }
+
+[_a-zA-Z][a-zA-Z0-9_]* { addref(yylineno, current_filename, yytext, 0);
+                          yylval.sym = lookup(yytext);
+                          return T_Id; }
+
 
 .         { return yytext[0]; }
 

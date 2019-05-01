@@ -96,13 +96,14 @@ static int symcompare(const void *xa, const void *xb)
 void printrefs()
 {
   printf("Symbol References:\n");
-  
+
   struct symbol *sp;
 
   /* sort the symbol table */
-  qsort(symtab, NHASH, sizeof(struct symbol), symcompare);
+  // qsort(symtab, NHASH, sizeof(struct symbol), symcompare);
 
-  for (sp = symtab; sp->name && sp < symtab+NHASH; sp++) {
+  for (sp = symtab; sp < symtab+NHASH; sp++) {
+    if (sp->name) {
     char *prevfn = NULL;	/* last printed filename, to skip dups */
 
     /* reverse the list of references */
@@ -130,5 +131,6 @@ void printrefs()
     } /* end for */
 
     printf("\n");
+  }
   }
 }

@@ -11,6 +11,7 @@
 extern void yyerror(char const*);
 extern char *current_filename;   // read source from here
 extern char *output_filename;    // write .ll output here
+extern struct symbol symtab[NHASH];
 
 void yyerror2(char *s, ...);
 
@@ -87,33 +88,23 @@ struct ast * newasgn(struct symbol *s, struct ast *v)
 }
 
 /*----------------------------------------------------------------------------*/
-struct symlist * newsymlist(struct symbol *sym, struct symlist *next)
+void emit_globals(FILE * codeout)
 {
-  struct symlist *sl = (struct symlist *) malloc(sizeof(struct symlist));
+  printf("Emit Globals:\n");
 
-  if (!sl) {
-    yyerror2("out of space");
-    exit(0);
+  struct symbol *sp;
+
+  for (sp = symtab; sp < symtab+NHASH; sp++) {
+    if (sp->name) {
+
+    /* now print the word and its references */
+    fprintf(codeout,"@%s = global i32 0, align 4\n", sp->name);
+    }
   }
 
-  sl->sym = sym;
-  sl->next = next;
+  fprintf(codeout,"\n");
 
-  return sl;
 }
-
-/*----------------------------------------------------------------------------*/
-void symlistfree(struct symlist *sl)
-{
-  struct symlist *nsl;
-
-  while (sl) {
-    nsl = sl->next;
-    free(sl);
-    sl = nsl;
-  }
-}
-
 /*----------------------------------------------------------------------------*/
 void emit_code(struct ast *a)
 {
@@ -130,16 +121,18 @@ fprintf(codeout,"; ModuleID = '%s'\n", current_filename);
 fprintf(codeout,"target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"\n");
 fprintf(codeout,"target triple = \"x86_64-pc-linux-gnu\"\n");
 fprintf(codeout,"\n");
+
+// Define global variables here
+emit_globals(codeout);
+
+// start definition of main
 fprintf(codeout,"define i32 @main(i32 %%argc, i8** %%argv) #0 {\n");
 
 // Body code here
 
-printf("Before eval(a)\n");
-
-eval(a);
 
 // Trailer code here
-fprintf(codeout,"  ret i32 0\n");
+fprintf(codeout,"  ret i32 @x\n");
 fprintf(codeout,"}\n");
 fprintf(codeout,"\n");
 fprintf(codeout,"attributes #0 = { nounwind uwtable ");
@@ -160,34 +153,6 @@ fprintf(codeout,"!1 = !{!\"sprola version 0.0.1-1 (tags/RELEASE_001/final)\"}\n"
 fprintf(codeout,"\n");
 
 fclose(codeout);
-}
-
-/*----------------------------------------------------------------------------*/
-double eval(struct ast *a)
-{
-  double v;
-
-  if (!a) {
-    yyerror("internal error, null eval");
-    return 0.0;
-  }
-
-  switch(a->nodetype) {
-    /* assignment */
-    case N_assignment:
-      // v = ((struct symasgn *)a)->s->value =
-      //  eval(((struct symasgn *)a)->v);
-      break;
-
-    case N_statement_list:
-      eval(a->l);
-      v = eval(a->r);
-      break;
-
-    default: printf("internal error: bad node %c\n", a->nodetype);
-  }
-
-  return v;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -225,6 +190,9 @@ void yyerror2(char *s, ...)
 int debug = 0;
 void dumpast(struct ast *a, int level)
 {
+  struct symasgn *node_assign = (struct symasgn *)a;
+  struct intval *node_int = (struct intval *)a;
+
   printf("%*s", 2*level, "");	/* indent to this level */
   level++;
 
@@ -236,17 +204,40 @@ void dumpast(struct ast *a, int level)
   switch(a->nodetype) {
     /* assignment */
     case N_assignment:
-      printf("%s = ", ((struct symasgn *)a)->s->name);
-      dumpast( ((struct symasgn *)a)->v, level);
+      node_assign = (struct symasgn *)a;
+      printf("%s = ", node_assign->s->name);
+      dumpast( node_assign->v, level);
       return;
 
     case N_integer:
-      printf("%d\n", ((struct intval *)a)->number);
+      node_int = (struct intval *)a;
+      printf("%d\n", node_int->number);
       return;
 
     case N_statement_list:
+      printf("Statement list left side\n");
       dumpast(a->l, level);
+      printf("%*s", 2*level, "");	/* indent to this level */
+      printf("Statement list right side\n");
       dumpast(a->r, level);
+      return;
+
+    case N_symbol_ref:
+      printf("Symbol Reference: %s\n", ((struct symref *)a)->s->name);
+      return;
+
+    case N_add:
+      printf("add left\n");
+      dumpast(a->l, level);
+      printf("add right\n");
+      dumpast(a->r, level);
+      return;
+
+    case N_subtract:
+    case N_multiply:
+    case N_divide:
+    case N_scope:
+    case N_negate:
       return;
 
     default: printf("bad %c\n", a->nodetype);

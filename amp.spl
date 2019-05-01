@@ -1,0 +1,32 @@
+%option Control_In gain
+%option Audio_In input
+%option Audio_Out output
+
+void instantiate() {
+}
+
+void activate()
+{
+}
+
+void run()
+{
+  int pos;
+
+// pos = 0;
+// while (pos <= (Num_Samples -1)) {
+//   ...
+// }
+
+	for (pos = 0 to Num_Samples - 1) {
+		output[pos] = input[pos] * gain;
+	}
+}
+
+void deactivate()
+{
+}
+
+void cleanup()
+{
+}

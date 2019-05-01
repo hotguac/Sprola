@@ -14,6 +14,12 @@ sprola
 # Sprola default output
 default_output.ll
 
+# Example lv2 projects in C
+amp.c
+
+# LV2 examples
+lv2/*
+
 # Compiled Object files
 *.slo
 *.lo
