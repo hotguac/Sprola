@@ -11,14 +11,9 @@ void activate()
 
 void run()
 {
-  int pos;
+	int pos;
 
-// pos = 0;
-// while (pos <= (Num_Samples -1)) {
-//   ...
-// }
-
-	for (pos = 0 to Num_Samples - 1) {
+	for (pos = 0; pos < Num_Samples; pos = pos + 1) {
 		output[pos] = input[pos] * gain;
 	}
 }

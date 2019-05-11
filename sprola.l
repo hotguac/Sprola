@@ -45,6 +45,8 @@ extern char *current_filename;   // read source from here
 "["       { return T_OpenBr; }
 "]"       { return T_CloseBR; }
 ";"       { return T_Semicolon; }
+"<"       { return T_LessThan; }
+">"       { return T_GreaterThan; }
 
 [0-9]+    { yylval.ival = atoi(yytext); return T_Integer; }
 

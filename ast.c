@@ -15,24 +15,26 @@ extern struct symbol symtab[NHASH];
 
 void yyerror2(char *s, ...);
 
+struct ast *newprogram(struct ast *options, struct ast *decls, struct ast *funcs)
+{
+  struct prog *a = (struct prog *) malloc(sizeof(struct prog));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_program;
+  a->opts = options;
+  a->decls = decls;
+  a->funcs = funcs;
+
+  return (struct ast *) a;
+}
+
 /*----------------------------------------------------------------------------*/
 struct ast * newast(enum node_types nodetype, struct ast *l, struct ast *r)
 {
-  printf("newast:\n");
-  printf("\tnodetype = '%c'\n", nodetype);
-
-  if (!l) {
-    printf("\tleft nodetype = NULL\n'\n");
-  } else {
-    printf("\tleft nodetype = '%c'\n", l->nodetype);
-  }
-
-  if (!r) {
-    printf("\tright nodetype = NULL\n");
-  } else {
-    printf("\tright nodetype = '%c'\n", r->nodetype);
-  }
-
   struct ast *a = (struct ast *) malloc(sizeof(struct ast));
 
   if (!a) {
@@ -47,12 +49,25 @@ struct ast * newast(enum node_types nodetype, struct ast *l, struct ast *r)
   return a;
 }
 
+struct ast *newoption(enum option_flags flag, struct ast* sym)
+{
+  struct setopt *a = (struct setopt *) malloc(sizeof(struct setopt));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_option;
+  a->option_flag = flag;
+  a->target = sym;
+
+  return (struct ast *)a;
+}
+
 /*----------------------------------------------------------------------------*/
 struct ast * newint(int d)
 {
-  printf("newint:\n");
-  printf("\tvalue = ''%d'\n", d);
-
   struct intval *a = (struct intval *) malloc(sizeof(struct intval));
 
   if (!a) {
@@ -67,12 +82,8 @@ struct ast * newint(int d)
 }
 
 /*----------------------------------------------------------------------------*/
-struct ast * newasgn(struct symbol *s, struct ast *v)
+struct ast * newasgn(struct ast *target, struct ast *value)
 {
-  printf("newasgn:\n");
-  printf("\tsymbol = '%s'\n", s->name);
-  printf("\tright hand nodetype = '%c'\n", v->nodetype);
-
   struct symasgn *a = (struct symasgn *) malloc(sizeof(struct symasgn));
 
   if (!a) {
@@ -81,8 +92,91 @@ struct ast * newasgn(struct symbol *s, struct ast *v)
   }
 
   a->nodetype = N_assignment;
-  a->s = s;
-  a->v = v;
+  a->target = target;
+  a->value = value;
+
+  return (struct ast *)a;
+}
+
+struct ast *newsymref(struct symbol *s)
+{
+  struct symref *a = (struct symref *) malloc(sizeof(struct symref));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_symbol_ref;
+  a->sym = s;
+
+  return (struct ast *)a;
+}
+
+struct ast *newarrayref(struct symbol *sym, struct ast *value)
+{
+  struct arrayref *a = (struct arrayref *) malloc(sizeof(struct symasgn));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_array_ref;
+  a->sym = sym;
+  a->index = value;
+
+  return (struct ast *)a;
+}
+
+struct ast *newfunction(int return_type, struct ast* name, struct ast* code)
+{
+  struct funcdef *a = (struct funcdef *) malloc(sizeof(struct funcdef));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_func_def;
+  a->name = (struct symref *) name;
+  a->body = code;
+  a->arglist = NULL;
+
+  return (struct ast *)a;
+}
+
+struct ast *newlessthan(struct ast *left, struct ast *right)
+{
+  struct condition *a = (struct condition *) malloc(sizeof(struct condition));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_condition;
+  a->operator = L_less_than;
+  a->left = left;
+  a->right = right;
+
+  return (struct ast *)a;
+}
+
+struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block)
+{
+  struct forloop *a = (struct forloop *) malloc(sizeof(struct forloop));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_for_loop;
+  a->initialize = init;
+  a->condition = cond;
+  a->post = post;
+  a->codeblock = block;
 
   return (struct ast *)a;
 }
@@ -164,7 +258,7 @@ void treefree(struct ast *a)
       treefree(a->r);
 
     case N_assignment:
-      free( ((struct symasgn *)a)->v);
+      free( ((struct symasgn *)a)->value);
       break;
 
     default:
@@ -190,28 +284,121 @@ void yyerror2(char *s, ...)
 int debug = 0;
 void dumpast(struct ast *a, int level)
 {
-  struct symasgn *node_assign = (struct symasgn *)a;
-  struct intval *node_int = (struct intval *)a;
+  struct symasgn *node_assign;
+  struct intval *node_int;
+  struct prog *node_prog;
+  struct funcdef *node_funcdef;
+  struct floatval *node_float;
+  struct forloop *node_forloop;
+  struct arrayref *node_arrayref;
+  struct setopt *node_option;
 
-  printf("%*s", 2*level, "");	/* indent to this level */
+  printf("%2d%*s", level, 2*level, "");	/* indent to this level */
   level++;
 
   if (!a) {
-    printf("NULL\n");
+    printf(".\n");
     return;
   }
 
   switch(a->nodetype) {
-    /* assignment */
+    case N_program:
+      node_prog = (struct prog *) a;
+      printf("program\n\n");
+      dumpast(node_prog->opts, level);
+      printf("\n");
+      dumpast(node_prog->decls, level);
+      printf("\n");
+      dumpast(node_prog->funcs, level);
+      return;
+
+    case N_functions:
+      printf("functions\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
+      return;
+
+    case N_func_def:
+      node_funcdef = (struct funcdef *) a;
+      printf("funcdef %d %s\n", node_funcdef->return_type,
+                                node_funcdef->name->sym->name);
+      dumpast(node_funcdef->body, level);
+      return;
+
+    case N_option:
+      node_option = (struct setopt *) a;
+      switch (node_option->option_flag) {
+        case OPT_lv2:
+          printf("option lv2\n");
+          dumpast(node_option->target,level);
+          return;
+        case OPT_audio_input:
+          printf("option audio input\n");
+          dumpast(node_option->target,level);
+          return;
+        case OPT_audio_output:
+          printf("option audio output\n");
+          dumpast(node_option->target,level);
+          return;
+        case OPT_control_in:
+          printf("option control input\n");
+          dumpast(node_option->target,level);
+          return;
+        case OPT_control_out:
+          printf("option control output\n");
+          dumpast(node_option->target,level);
+          return;
+      }
+      return;
+
+    case N_options:
+      printf("options\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
+      return;
+
+    case N_condition:
+      printf("cond\n");
+      return;
+
+    case N_float:
+      node_float = (struct floatval *)a;
+      printf("float %f\n", node_float->number);
+      return;
+
+    case N_array_ref:
+      node_arrayref = (struct arrayref *)a;
+      printf("arrayref %s\n", node_arrayref->sym->name);
+      dumpast(node_arrayref->index, level);
+      return;
+
+    case N_for_loop:
+      node_forloop = (struct forloop *)a;
+      printf("for loop\n");
+      dumpast(node_forloop->initialize, level);
+      dumpast(node_forloop->condition, level);
+      dumpast(node_forloop->post, level);
+      dumpast(node_forloop->codeblock, level);
+      return;
+
+    case N_while_loop:
+      printf("while loop\n");
+      return;
+
+    case N_until_loop:
+      printf("until loop\n");
+      return;
+
     case N_assignment:
+      printf("assignment\n");
       node_assign = (struct symasgn *)a;
-      printf("%s = ", node_assign->s->name);
-      dumpast( node_assign->v, level);
+      dumpast(node_assign->target, level);
+      dumpast( node_assign->value, level);
       return;
 
     case N_integer:
       node_int = (struct intval *)a;
-      printf("%d\n", node_int->number);
+      printf("int %d\n", node_int->number);
       return;
 
     case N_statement_list:
@@ -223,7 +410,7 @@ void dumpast(struct ast *a, int level)
       return;
 
     case N_symbol_ref:
-      printf("Symbol Reference: %s\n", ((struct symref *)a)->s->name);
+      printf("Symbol Reference: %s\n", ((struct symref *)a)->sym->name);
       return;
 
     case N_add:
@@ -234,11 +421,25 @@ void dumpast(struct ast *a, int level)
       return;
 
     case N_subtract:
-    case N_multiply:
-    case N_divide:
-    case N_scope:
-    case N_negate:
+      printf("sub\n");
       return;
+
+    case N_multiply:
+      printf("mult\n");
+      return;
+
+    case N_divide:
+      printf("divide\n");
+      return;
+
+    case N_scope:
+      printf("scope\n");
+      return;
+
+    case N_negate:
+      printf("neg\n");
+      return;
+
 
     default: printf("bad %c\n", a->nodetype);
       return;

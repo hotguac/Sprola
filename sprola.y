@@ -54,15 +54,19 @@ void yyerror(char const*);
 %token T_Plus "+"
 %token T_Minus "-"
 
+%token T_LessThan "<"
+%token T_GreaterThan ">"
+
 %token T_Semicolon ";"
 
 %token <ival> T_Integer
 
-%type <a> statements statement assignment options
+%type <a> statements statement assignment options option
 %type <a> factor term expr expra function code_block
 %type <a> functions variable_declaration variable_declarations
+%type <a> array_reference condition for_statement program
 
-%type <sym> T_Id array_reference
+%type <sym> T_Id
 
 %debug
 %start program
@@ -75,75 +79,102 @@ void yyerror(char const*);
 program
   : options variable_declarations functions
     {
+      $$ = newprogram($1, $2, $3);
       printrefs();
       printf(">>>\nDump AST\n");
-      dumpast($3,1);
+      dumpast($$, 1);
       printf(">>>\n");
       emit_code($<a>1);
-  }
+    }
   | options functions
     {
+      $$ = newprogram($1, NULL, $2);
       printrefs();
-      printf(">>>\nDump AST: options functions\n");
-      dumpast($2,1);
+      printf(">>>\nDump AST\n");
+      dumpast($$, 1);
       printf(">>>\n");
       emit_code($<a>1);
     }
   | variable_declarations functions
     {
+      $$ = newprogram(NULL, $1, $2);
       printrefs();
       printf(">>>\nDump AST\n");
-      dumpast($2,1);
+      dumpast($$, 1);
       printf(">>>\n");
       emit_code($<a>1);
     }
   | functions
     {
+      $$ = newprogram(NULL, NULL, $1);
       printrefs();
       printf(">>>\nDump AST\n");
-      dumpast($1,1);
+      dumpast($$, 1);
       printf(">>>\n");
       emit_code($<a>1);
     }
   ;
 
 options
-  : options option { /* */ }
-  | option  { /* */ }
+  : options option
+    {
+      $$ = newast(N_options, $1, $2);
+    }
+  | option
+    {
+      $$ = $1;
+    }
   ;
 
 option
-  : T_Option T_Audio_In T_Id { /* */ }
-  | T_Option T_Audio_Out T_Id { /* */ }
-  | T_Option T_Control_In T_Id { /* */ }
+  : T_Option T_Audio_In T_Id
+    {
+      $$ = newoption(OPT_audio_input, newsymref($3));
+    }
+  | T_Option T_Audio_Out T_Id
+    {
+      $$ = newoption(OPT_audio_output, newsymref($3));
+    }
+  | T_Option T_Control_In T_Id
+    {
+      $$ = newoption(OPT_control_in, newsymref($3));
+    }
   ;
 
 variable_declarations
-  : variable_declarations variable_declaration { /* */ }
-  | variable_declaration { /* */ }
+  : variable_declarations variable_declaration
+    {
+      $$ = newast(N_var_declaration, $1, $2);
+    }
+  | variable_declaration
+    {
+      $$ = $1;
+    }
   ;
 
 variable_declaration
-  : T_Type T_Id T_Semicolon { /* */ }
+  : T_Type T_Id T_Semicolon
+    {
+      /* */
+    }
   ;
 
 functions
   : functions function
     {
-      $$ = $2;
-      printf("dumpast functions function\n");
-      dumpast($2, 1);
+      $$ = newast(N_functions, $1, $2);
     }
   | function
     {
       $$ = $1;
-      printf("dumpast function\n");
-      dumpast($1, 1);
     }
   ;
 
 function
-  : T_Type T_Id T_OpenP T_CloseP code_block  { $$ = $5; }
+  : T_Type T_Id T_OpenP T_CloseP code_block
+    {
+      $$ = newfunction(TY_void, newsymref($2), $5);
+    }
   ;
 
 code_block
@@ -151,55 +182,127 @@ code_block
     {
       $$ = newast(N_scope, $2, $3);
     }
-  | T_OpenCB statements T_CloseCB  { $$ = $2; }
+  | T_OpenCB statements T_CloseCB
+    {
+      $$ = $2;
+    }
   | T_OpenCB T_CloseCB { $$ = NULL; }
   ;
 
 statements
-  : statements statement { $$ = newast(N_statement_list, $1, $2);  }
-  | statement { $$ = $1; }
+  : statements statement
+    {
+      $$ = newast(N_statement_list, $1, $2);
+    }
+  | statement
+    {
+      $$ = $1;
+    }
   ;
 
 statement
-  : assignment T_Semicolon { $$ = $1; }
-  | for_statement { printf("\t\t\t***statement: for_statement\n"); }
+  : assignment T_Semicolon
+    {
+      $$ = $1;
+      }
+  | for_statement
+    {
+    $$ = $1;
+    }
   ;
 
 assignment
-  : T_Id T_Equal expr { $$ = newasgn($1, $3); }
-  | array_reference T_Equal expr { $$ = newasgn($1, $3); }
+  : T_Id T_Equal expr
+    {
+      $$ = newasgn(newsymref($1), $3);
+    }
+  | array_reference T_Equal expr
+    {
+      $$ = newasgn($1, $3);
+    }
   ;
 
 array_reference
-  : T_Id T_OpenBr expr T_CloseBR { $$ = $1; }
+  : T_Id T_OpenBr expr T_CloseBR
+    {
+      $$ = newarrayref($1, $3);
+    }
+  ;
+
+condition
+  : expr T_LessThan expr
+    {
+      $$ = newlessthan($1, $3);
+    }
   ;
 
 for_statement
-  : KW_For T_OpenP T_Id T_Equal T_Integer KW_To expr T_CloseP code_block { /* */}
+  : KW_For T_OpenP assignment T_Semicolon
+    condition T_Semicolon
+    assignment T_CloseP code_block
+    {
+      $$ = newforloop($3, $5, $7, $9);
+    }
   ;
 
 expr
-  : expra { $$ = $1; }
+  : expra
+    {
+      $$ = $1;
+    }
   ;
 
 expra
-  : expra T_Plus term   { $$ = newast(N_add, $1, $3); }
-  | expra T_Minus term  { $$ = newast(N_subtract, $1, $3); }
-  | term  { $$ = $1; }
+  : expra T_Plus term
+    {
+      $$ = newast(N_add, $1, $3);
+    }
+  | expra T_Minus term
+    {
+      $$ = newast(N_subtract, $1, $3);
+    }
+  | term
+    {
+      $$ = $1;
+    }
   ;
 
 term
-  : term '*' factor   { $$ = newast(N_multiply, $1, $3); }
-  | term '/' factor  { $$ = newast(N_divide, $1, $3); }
-  | factor { $$ = $1; }
+  : term '*' factor
+    {
+      $$ = newast(N_multiply, $1, $3);
+    }
+  | term '/' factor
+    {
+      $$ = newast(N_divide, $1, $3);
+    }
+  | factor
+    {
+      $$ = $1;
+    }
   ;
 
 factor
-  : T_OpenP expr T_CloseP  { $$ = $2; }
-  | T_Minus factor    { $$ = newast(N_negate, $2, NULL); }
-  | T_Integer         { $$ = newint($1); }
-  | T_Id              { $$ = (struct ast *)$1; }
-  | array_reference   { $$ = (struct ast *)$1; }
+  : T_OpenP expr T_CloseP
+    {
+      $$ = $2;
+    }
+  | T_Minus factor
+    {
+      $$ = newast(N_negate, $2, NULL);
+    }
+  | T_Integer
+    {
+      $$ = newint($1);
+    }
+  | T_Id
+    {
+      $$ = (struct ast *)$1;
+    }
+  | array_reference
+    {
+      $$ = (struct ast *)$1;
+    }
   ;
 
 %%
