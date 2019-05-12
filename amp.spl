@@ -2,6 +2,8 @@
 %option Audio_In input
 %option Audio_Out output
 
+%option URI "http://example.org/plugins/min-amp"
+
 void instantiate() {
 }
 
@@ -23,5 +25,13 @@ void deactivate()
 }
 
 void cleanup()
+{
+}
+
+void extension_data()
+{
+}
+
+void connect_port()
 {
 }

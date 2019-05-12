@@ -42,6 +42,7 @@ void yyerror(char const*);
 %token T_Audio_In
 %token T_Audio_Out
 %token T_Control_In
+%token T_URI
 
 %token T_OpenP "("
 %token T_CloseP ")"
@@ -61,12 +62,14 @@ void yyerror(char const*);
 
 %token <ival> T_Integer
 
+%token T_String
+
 %type <a> statements statement assignment options option
 %type <a> factor term expr expra function code_block
 %type <a> functions variable_declaration variable_declarations
 %type <a> array_reference condition for_statement program
 
-%type <sym> T_Id
+%type <sym> T_Id T_String
 
 %debug
 %start program
@@ -84,7 +87,7 @@ program
       printf(">>>\nDump AST\n");
       dumpast($$, 1);
       printf(">>>\n");
-      emit_code($<a>1);
+      emit_code($$);
     }
   | options functions
     {
@@ -93,7 +96,7 @@ program
       printf(">>>\nDump AST\n");
       dumpast($$, 1);
       printf(">>>\n");
-      emit_code($<a>1);
+      emit_code($$);
     }
   | variable_declarations functions
     {
@@ -102,7 +105,7 @@ program
       printf(">>>\nDump AST\n");
       dumpast($$, 1);
       printf(">>>\n");
-      emit_code($<a>1);
+      emit_code($$);
     }
   | functions
     {
@@ -139,12 +142,16 @@ option
     {
       $$ = newoption(OPT_control_in, newsymref($3));
     }
+  | T_Option T_URI T_String
+    {
+      $$ = newoption(OPT_uri, newsymref($3));
+    }
   ;
 
 variable_declarations
   : variable_declarations variable_declaration
     {
-      $$ = newast(N_var_declaration, $1, $2);
+      $$ = newast(N_var_declarations, $1, $2);
     }
   | variable_declaration
     {
@@ -155,7 +162,7 @@ variable_declarations
 variable_declaration
   : T_Type T_Id T_Semicolon
     {
-      /* */
+      $$ = newvardecl(newsymref($2));
     }
   ;
 
@@ -297,7 +304,7 @@ factor
     }
   | T_Id
     {
-      $$ = (struct ast *)$1;
+      $$ = newsymref($1);
     }
   | array_reference
     {
@@ -313,7 +320,7 @@ factor
 int main(int argc, char **argv)
 {
   static const char *default_input = "stdin";
-  static const char *default_output = "default_output.ll";
+  static const char *default_output = "default_output.bc";
 
   if (argc > 1) {
     current_filename = argv[1];

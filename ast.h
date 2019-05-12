@@ -9,10 +9,11 @@ extern struct symbol *lookup(char*);
 enum node_types {
   N_program = 1,
   N_functions,
+  N_func_def,
   N_options,
   N_option,
+  N_var_declarations,
   N_var_declaration,
-  N_func_def,
   N_assignment,
   N_condition,
   N_integer,
@@ -43,7 +44,8 @@ enum option_flags {
   OPT_audio_input,
   OPT_audio_output,
   OPT_control_in,
-  OPT_control_out
+  OPT_control_out,
+  OPT_uri
 };
 
 enum logical_types {
@@ -86,6 +88,11 @@ struct floatval {
 struct symref {
   enum node_types nodetype;			/* type N_symbol_ref */
   struct symbol *sym;
+};
+
+struct var_decl {
+  enum node_types nodetype;			/* type N_symbol_ref */
+  struct ast *sym;
 };
 
 struct symasgn {
@@ -137,6 +144,7 @@ struct ast *newast(enum node_types nodetype, struct ast *l, struct ast *r);
 struct ast *newasgn(struct ast *target, struct ast *value);
 struct ast *newarrayref(struct symbol *s, struct ast *v);
 struct ast *newint(int d);
+struct ast *newvardecl(struct ast *s);
 struct ast *newsymref(struct symbol *s);
 struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block);
 struct ast *newlessthan(struct ast *left, struct ast *right);

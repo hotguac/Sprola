@@ -113,6 +113,21 @@ struct ast *newsymref(struct symbol *s)
   return (struct ast *)a;
 }
 
+struct ast *newvardecl(struct ast *s)
+{
+  struct var_decl *a = (struct var_decl *) malloc(sizeof(struct var_decl));
+
+  if (!a) {
+    yyerror2("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_var_declaration;
+  a->sym = s;
+
+  return (struct ast *)a;
+}
+
 struct ast *newarrayref(struct symbol *sym, struct ast *value)
 {
   struct arrayref *a = (struct arrayref *) malloc(sizeof(struct symasgn));
@@ -182,74 +197,6 @@ struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, str
 }
 
 /*----------------------------------------------------------------------------*/
-void emit_globals(FILE * codeout)
-{
-  printf("Emit Globals:\n");
-
-  struct symbol *sp;
-
-  for (sp = symtab; sp < symtab+NHASH; sp++) {
-    if (sp->name) {
-
-    /* now print the word and its references */
-    fprintf(codeout,"@%s = global i32 0, align 4\n", sp->name);
-    }
-  }
-
-  fprintf(codeout,"\n");
-
-}
-/*----------------------------------------------------------------------------*/
-void emit_code(struct ast *a)
-{
-FILE * codeout;
-
-printf("output filename = '%s'\n", output_filename);
-
-if (!(codeout = fopen(output_filename, "w"))) {
-  perror(output_filename);
-}
-
-// Header code here
-fprintf(codeout,"; ModuleID = '%s'\n", current_filename);
-fprintf(codeout,"target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"\n");
-fprintf(codeout,"target triple = \"x86_64-pc-linux-gnu\"\n");
-fprintf(codeout,"\n");
-
-// Define global variables here
-emit_globals(codeout);
-
-// start definition of main
-fprintf(codeout,"define i32 @main(i32 %%argc, i8** %%argv) #0 {\n");
-
-// Body code here
-
-
-// Trailer code here
-fprintf(codeout,"  ret i32 @x\n");
-fprintf(codeout,"}\n");
-fprintf(codeout,"\n");
-fprintf(codeout,"attributes #0 = { nounwind uwtable ");
-fprintf(codeout,"\"disable-tail-calls\"=\"false\" ");
-fprintf(codeout,"\"less-precise-fpmad\"=\"false\" ");
-fprintf(codeout,"\"no-frame-pointer-elim\"=\"true\" ");
-fprintf(codeout,"\"no-frame-pointer-elim-non-leaf\" ");
-fprintf(codeout,"\"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"target-cpu\"=\"x86-64\" \"target-features\"=\"+fxsr,+mmx,+sse,+sse2\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }\n");
-fprintf(codeout,"\n");
-
-
-fprintf(codeout,"\n");
-fprintf(codeout,"!llvm.module.flags = !{!0}\n");
-fprintf(codeout,"!llvm.ident = !{!1}\n");
-fprintf(codeout,"\n");
-fprintf(codeout,"!0 = !{i32 1, !\"PIC Level\", i32 2}\n");
-fprintf(codeout,"!1 = !{!\"sprola version 0.0.1-1 (tags/RELEASE_001/final)\"}\n");
-fprintf(codeout,"\n");
-
-fclose(codeout);
-}
-
-/*----------------------------------------------------------------------------*/
 void treefree(struct ast *a)
 {
   switch(a->nodetype) {
@@ -292,6 +239,8 @@ void dumpast(struct ast *a, int level)
   struct forloop *node_forloop;
   struct arrayref *node_arrayref;
   struct setopt *node_option;
+  struct condition *node_cond;
+  struct var_decl *node_var_decl;
 
   printf("%2d%*s", level, 2*level, "");	/* indent to this level */
   level++;
@@ -325,6 +274,12 @@ void dumpast(struct ast *a, int level)
       dumpast(node_funcdef->body, level);
       return;
 
+    case N_options:
+      printf("options\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
+      return;
+
     case N_option:
       node_option = (struct setopt *) a;
       switch (node_option->option_flag) {
@@ -348,17 +303,31 @@ void dumpast(struct ast *a, int level)
           printf("option control output\n");
           dumpast(node_option->target,level);
           return;
+        case OPT_uri:
+          printf("option uri\n");
+          dumpast(node_option->target,level);
+          return;
       }
-      return;
-
-    case N_options:
-      printf("options\n");
-      dumpast(a->l, level);
-      dumpast(a->r, level);
       return;
 
     case N_condition:
       printf("cond\n");
+      node_cond = (struct condition *) a;
+      dumpast(node_cond->left, level);
+      printf("%2d%*s", level, 2*level, "");	/* indent to this level */
+      switch (node_cond->operator) {
+        case L_less_than:
+          printf(" < \n");
+          break;
+        case L_greater_than:
+          printf(" > \n");
+          break;
+        case L_equals:
+          printf(" = \n");
+          break;
+      }
+      dumpast(node_cond->right, level);
+
       return;
 
     case N_float:
@@ -414,26 +383,45 @@ void dumpast(struct ast *a, int level)
       return;
 
     case N_add:
-      printf("add left\n");
+      printf("addition\n");
       dumpast(a->l, level);
-      printf("add right\n");
       dumpast(a->r, level);
       return;
 
     case N_subtract:
       printf("sub\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
       return;
 
     case N_multiply:
       printf("mult\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
       return;
 
     case N_divide:
       printf("divide\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
       return;
 
     case N_scope:
       printf("scope\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
+      return;
+
+    case N_var_declarations:
+      printf("var declares\n");
+      dumpast(a->l, level);
+      dumpast(a->r, level);
+      return;
+
+    case N_var_declaration:
+      node_var_decl = (struct var_decl *)a;
+      printf("var decl\n");
+      dumpast(node_var_decl->sym, level);
       return;
 
     case N_negate:
@@ -441,7 +429,7 @@ void dumpast(struct ast *a, int level)
       return;
 
 
-    default: printf("bad %c\n", a->nodetype);
+    default: printf("bad %d\n", a->nodetype);
       return;
   }
 

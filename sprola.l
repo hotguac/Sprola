@@ -28,6 +28,7 @@ extern char *current_filename;   // read source from here
 "Audio_In"  { return T_Audio_In; }
 "Audio_Out" { return T_Audio_Out; }
 "Control_In" { return T_Control_In; }
+"URI" { return T_URI; }
 
 "void" { yylval.sval = strdup(yytext); return T_Type; }
 "int" { yylval.sval = strdup(yytext); return T_Type; }
@@ -47,6 +48,9 @@ extern char *current_filename;   // read source from here
 ";"       { return T_Semicolon; }
 "<"       { return T_LessThan; }
 ">"       { return T_GreaterThan; }
+
+\"[^"\\]*\" { addref(yylineno, current_filename, yytext, 0);
+              yylval.sym = lookup(yytext); return T_String; }
 
 [0-9]+    { yylval.ival = atoi(yytext); return T_Integer; }
 
