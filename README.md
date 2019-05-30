@@ -8,9 +8,9 @@ the creation of an audio plugin in the LV2 format. Other plugin targets and GUI 
 ## Required development tools
 
 This project requires the following development tools
-*[Flex](https://github.com/westes/flex) for lexical analysis (2.6.1)
-*[GNU Bison](https://www.gnu.org/software/bison/) for parsing (3.0.4)
-*[LLVM](https://llvm.org/) for LLVM C API (4.0) and Clang compiler (3.8.1)
+* [Flex](https://github.com/westes/flex) for lexical analysis (2.6.1)
+* [GNU Bison](https://www.gnu.org/software/bison/) for parsing (3.0.4)
+* [LLVM](https://llvm.org/) for LLVM C API (4.0) and Clang compiler (3.8.1)
 
 I'm developing using the version from the [Debian](https://www.debian.org/) respositories
 
