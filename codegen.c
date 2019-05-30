@@ -39,6 +39,10 @@ LLVMValueRef FN_descriptor;
 /*----------------------------------------------------------------------------*/
 void emit_option(LLVMModuleRef mod, struct ast *a)
 {
+  int len;
+  char *literal;
+  char *lit;
+
   if (a == NULL) {
     return;
   }
@@ -78,23 +82,20 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
         ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_uri:
-      fprintf(stderr,"enter define opt_uri\n");
-      int len = strlen(((struct symref *) opt->target)->sym->name);
-      char *literal = strndup((((struct symref *) opt->target)->sym->name)+1,len-2);
+      len = strlen(((struct symref *) opt->target)->sym->name);
+      literal = strndup((((struct symref *) opt->target)->sym->name)+1,len-2);
+      lit = strcat(literal, "\00");
 
-      uri = LLVMAddGlobal(mod, LLVMArrayType(LLVMInt8Type(), len), "URI_string");
+      uri = LLVMAddGlobal(mod, LLVMArrayType(LLVMInt8Type(), len-1), "URI_string");
 
-      //LLVMSetLinkage(uri, LLVMInternalLinkage);
+      LLVMSetUnnamedAddr(uri, 1);
       LLVMSetLinkage(uri, LLVMPrivateLinkage);
       LLVMSetGlobalConstant(uri, 1);
 
       // Initialize with string:
-      LLVMSetInitializer(uri, LLVMConstString(literal, len-2, 1));
-
-      fprintf(stderr,"exit define opt_uri\n");
+      LLVMSetInitializer(uri, LLVMConstString(lit, len-1, 1));
       break;
   }
-
 }
 
 /*----------------------------------------------------------------------------*/
@@ -172,34 +173,26 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
   name = fn->name->sym->name;
   return_value = NULL;
 
-  fprintf(stderr, "function name = '%s'\n", name);
-
   LLVMBuilderRef builder = LLVMCreateBuilder();
 
   if (strcmp(name, "run") == 0) {
-    entry = LLVMAppendBasicBlock(FN_run, "entry");
   } else if (strcmp(name, "instantiate") == 0) {
-    entry = LLVMAppendBasicBlock(FN_instantiate, "entry");
   } else if (strcmp(name, "activate") == 0) {
-    entry = LLVMAppendBasicBlock(FN_activate, "entry");
   } else if (strcmp(name, "deactivate") == 0) {
-    entry = LLVMAppendBasicBlock(FN_deactivate, "entry");
   } else if (strcmp(name, "cleanup") == 0) {
-    entry = LLVMAppendBasicBlock(FN_cleanup, "entry");
   } else if (strcmp(name, "extension_data") == 0) {
-    entry = LLVMAppendBasicBlock(FN_extension_data, "entry");
   } else if (strcmp(name, "connect_port") == 0) {
-    entry = LLVMAppendBasicBlock(FN_connect_port, "entry");
   } else {
     LLVMTypeRef param_types[] = { LLVMInt8Type(), LLVMInt32Type()};
     ret_type = LLVMFunctionType(LLVMVoidType(), param_types, 2, 0);
 
     func = LLVMAddFunction(mod, name, ret_type);
     entry = LLVMAppendBasicBlock(func, "entry");
+
+    LLVMPositionBuilderAtEnd(builder, entry);
+    LLVMBuildRet(builder, return_value);
   }
 
-  LLVMPositionBuilderAtEnd(builder, entry);
-  LLVMBuildRet(builder, return_value);
   LLVMDisposeBuilder(builder);
 }
 
@@ -296,8 +289,6 @@ void emit_lv2_descriptor(LLVMModuleRef mod, LLVMBuilderRef builder)
     = LLVMAddGlobal(mod, struct_lv2_descriptor, "descriptor");
   LLVMSetLinkage(global_descriptor, LLVMInternalLinkage);
 
-  //LLVMSetGlobalConstant(global_descriptor, 1);
-  //LLVMSetInitializer(global_descriptor, LLVMConstString(literal, len-2, 1));
   LLVMSetAlignment(LLVMBuildStore(builder,global_descriptor, descr),8);
   LLVMBuildBr(builder, sw_end);
 
@@ -322,7 +313,8 @@ void emit_lv2_descriptor(LLVMModuleRef mod, LLVMBuilderRef builder)
 void emit_instantiate(LLVMModuleRef mod, LLVMBuilderRef builder)
 {
   // -------
-  // define the instantiate function, the body statements will be added later
+  // define the stock instantiate function,
+  // the statements from the Sprola source will be added later
   // -------
   LLVMTypeRef ret_type = LLVMFunctionType(void_ptr,
     (LLVMTypeRef []) {
@@ -356,14 +348,47 @@ void emit_instantiate(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetAlignment(bundle_path, 8);
 
   LLVMValueRef features = LLVMBuildAlloca(builder,
-    LLVMPointerType(struct_lv2_feature, 0), "");
+    LLVMPointerType(LLVMPointerType(struct_lv2_feature, 0),0), "");
   LLVMSetAlignment(features, 8);
 
   LLVMValueRef plugin = LLVMBuildAlloca(builder,
     LLVMPointerType(struct_plugin, 0), "plugin");
   LLVMSetAlignment(plugin, 8);
 
-  //TODO: finish up instantiate
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_instantiate, 0), descr), 8);
+
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_instantiate, 1), rate), 8);
+
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_instantiate, 2), bundle_path), 8);
+
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_instantiate, 3), features), 8);
+
+  //TODO: add noalias : Define external function malloc
+  LLVMTypeRef malloc_type = LLVMFunctionType(LLVMPointerType(LLVMInt8Type(), 0),
+    (LLVMTypeRef []) { LLVMInt64Type()}, 1, 0);
+  LLVMValueRef ext_malloc = LLVMAddFunction(mod, "malloc", malloc_type);
+  LLVMSetLinkage(ext_malloc, LLVMExternalLinkage);
+
+  //TODO: build the size, i.e. 24, programatically instead of hard code
+  LLVMValueRef args[] = { LLVMConstInt(LLVMInt64Type(), 24, 0) };
+  LLVMValueRef result = LLVMBuildCall(builder, ext_malloc, args, 1, "");
+
+  LLVMValueRef cast =
+    LLVMBuildBitCast(builder, result, LLVMPointerType(struct_plugin, 0), "");
+
+  LLVMSetAlignment(LLVMBuildStore(builder, cast, plugin), 8);
+
+  LLVMValueRef y = LLVMBuildLoad(builder, plugin, "");
+  LLVMSetAlignment(y, 8);
+
+  LLVMValueRef ret_val =
+    LLVMBuildBitCast(builder, y, LLVMPointerType(LLVMInt8Type(), 0), "");
+
+  LLVMBuildRet(builder, ret_val);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -386,6 +411,12 @@ void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetValueName(LLVMGetParam(FN_connect_port, 2), "data");
 
   LLVMSetLinkage(FN_connect_port, LLVMInternalLinkage);
+
+  // finish
+  LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_connect_port, "");
+
+  LLVMPositionBuilderAtEnd(builder, entry);
+  LLVMBuildRet(builder, NULL);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -403,6 +434,11 @@ void emit_activate(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetValueName(LLVMGetParam(FN_activate, 0), "instance");
 
   LLVMSetLinkage(FN_activate, LLVMInternalLinkage);
+  // finish
+  LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_activate, "");
+
+  LLVMPositionBuilderAtEnd(builder, entry);
+  LLVMBuildRet(builder, NULL);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -422,6 +458,12 @@ void emit_run(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetValueName(LLVMGetParam(FN_run, 1), "n_samples");
 
   LLVMSetLinkage(FN_run, LLVMInternalLinkage);
+
+  // finish
+  LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_run, "");
+
+  LLVMPositionBuilderAtEnd(builder, entry);
+  LLVMBuildRet(builder, NULL);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -439,6 +481,11 @@ void emit_deactivate(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetValueName(LLVMGetParam(FN_deactivate, 0), "instance");
 
   LLVMSetLinkage(FN_deactivate, LLVMInternalLinkage);
+  // finish
+  LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_deactivate, "");
+
+  LLVMPositionBuilderAtEnd(builder, entry);
+  LLVMBuildRet(builder, NULL);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -456,6 +503,11 @@ void emit_cleanup(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetValueName(LLVMGetParam(FN_cleanup, 0), "instance");
 
   LLVMSetLinkage(FN_cleanup, LLVMInternalLinkage);
+  // finish
+  LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_cleanup, "");
+
+  LLVMPositionBuilderAtEnd(builder, entry);
+  LLVMBuildRet(builder, NULL);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -473,6 +525,19 @@ void emit_extension_data(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetValueName(LLVMGetParam(FN_extension_data, 0), "uri");
 
   LLVMSetLinkage(FN_extension_data, LLVMInternalLinkage);
+  // finish
+  LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_extension_data, "");
+
+  LLVMPositionBuilderAtEnd(builder, entry);
+  // Testing
+  LLVMValueRef x = LLVMBuildAlloca(builder,
+    LLVMPointerType(LLVMInt8Type(), 0), "");
+  LLVMSetAlignment(x, 8);
+
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_extension_data, 0), x),8);
+
+  LLVMBuildRet(builder, LLVMConstNull(void_ptr));
 }
 
 /*----------------------------------------------------------------------------*/
@@ -516,21 +581,6 @@ LLVMModuleRef emit_standard(void)
   emit_cleanup(mod, builder);
   emit_extension_data(mod, builder);
 
-  // Test Structures
-  LLVMTypeRef struct_test = LLVMStructCreateNamed(global, "struct._test");
-  LLVMTypeRef test_body[] = { LLVMInt32Type(), LLVMInt32Type() };
-  LLVMStructSetBody(struct_test, test_body, 2, 0);
-
-  LLVMValueRef xx[] = { LLVMConstInt(LLVMInt32Type(), 7, 0),
-    LLVMConstInt(LLVMInt32Type(), 13, 0)};
-  LLVMValueRef fields = LLVMConstStruct(xx, 2, 0);
-
-  LLVMValueRef t
-      = LLVMAddGlobal(mod, struct_test, "test");
-
-  LLVMSetInitializer(t, fields);
-  // End test
-
   LLVMDisposeBuilder(builder);
 
   return(mod);
@@ -539,8 +589,6 @@ LLVMModuleRef emit_standard(void)
 /*----------------------------------------------------------------------------*/
 void finish_descriptor()
 {
-  fprintf(stderr, "Enter finish_descriptor\n");
-
   LLVMStructSetBody(struct_lv2_descriptor, (LLVMTypeRef []) {
     void_ptr,
     LLVMTypeOf(FN_instantiate),
@@ -553,7 +601,8 @@ void finish_descriptor()
   }, 8, 0);
 
   // Build element pointer for URI String
-  LLVMValueRef indexes[] = { LLVMConstInt (LLVMInt32Type (), 0, 0),
+  LLVMValueRef indexes[] = {
+    LLVMConstInt (LLVMInt32Type (), 0, 0),
     LLVMConstInt (LLVMInt32Type (), 0, 0)};
   LLVMValueRef uri_ptr = LLVMConstInBoundsGEP(uri,
     indexes, 2);
@@ -569,21 +618,21 @@ void finish_descriptor()
     FN_extension_data
     };
 
-  LLVMValueRef const_descr = LLVMConstStruct(fields, 8, 0);
+  //LLVMValueRef const_descr = LLVMConstStruct(fields, 8, 0);
+  LLVMValueRef const_descr = LLVMConstNamedStruct(struct_lv2_descriptor,fields, 8);
+
 
   // Tell it to be a global constant
   LLVMSetGlobalConstant(global_descriptor, 1);
+  LLVMSetAlignment(global_descriptor, 8);
 
   // Do the initialization
   LLVMSetInitializer(global_descriptor, const_descr);
-
-  fprintf(stderr, "Exit finish_descriptor\n");
 }
 
 /*----------------------------------------------------------------------------*/
 void finish_plugin()
 {
-  fprintf(stderr, "In finish_plugin\n");
   LLVMStructSetBody(struct_plugin,
     (LLVMTypeRef []) {
       float_ptr,
