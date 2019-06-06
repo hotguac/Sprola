@@ -281,9 +281,9 @@ void emit_lv2_descriptor(LLVMModuleRef mod, LLVMBuilderRef builder)
 
   // Now define the switch statement
   LLVMValueRef sw = LLVMBuildSwitch(builder, y, case_default, 1);
-  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 0, 0), case0);
 
   // Build the case 0 basic block
+  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 0, 0), case0);
   LLVMPositionBuilderAtEnd(builder, case0);
   global_descriptor
     = LLVMAddGlobal(mod, struct_lv2_descriptor, "descriptor");
@@ -412,10 +412,123 @@ void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder)
 
   LLVMSetLinkage(FN_connect_port, LLVMInternalLinkage);
 
-  // finish
   LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_connect_port, "");
-
   LLVMPositionBuilderAtEnd(builder, entry);
+
+  LLVMValueRef instance = LLVMBuildAlloca(builder, void_ptr, "");
+  LLVMSetAlignment(instance, 8);
+
+  LLVMValueRef port = LLVMBuildAlloca(builder, LLVMInt32Type(), "");
+  LLVMSetAlignment(port, 4);
+
+  LLVMValueRef data = LLVMBuildAlloca(builder, void_ptr, "");
+  LLVMSetAlignment(data, 8);
+
+  LLVMValueRef plugin = LLVMBuildAlloca(builder,
+    LLVMPointerType(struct_plugin, 0), "plugin");
+  LLVMSetAlignment(plugin, 8);
+
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_connect_port, 0), instance), 8);
+
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_connect_port, 1), port), 8);
+
+  LLVMSetAlignment(
+    LLVMBuildStore(builder, LLVMGetParam(FN_connect_port, 2), data), 8);
+
+  LLVMValueRef y = LLVMBuildLoad(builder, instance, "");
+  LLVMSetAlignment(y, 8);
+
+  LLVMValueRef z =
+    LLVMBuildBitCast(builder, y, LLVMPointerType(struct_plugin, 0), "");
+  LLVMSetAlignment(LLVMBuildStore(builder, z, plugin), 8);
+
+  LLVMValueRef index = LLVMBuildLoad(builder, port, "");
+  LLVMSetAlignment(index, 4);
+
+  //***********************************************************************
+  // Set up switch statement blocks
+  //TODO: the number of cases should be built based on number of option ports
+  //***********************************************************************
+  LLVMBasicBlockRef case0 = LLVMAppendBasicBlock(FN_connect_port, "");
+  LLVMBasicBlockRef case1 = LLVMAppendBasicBlock(FN_connect_port, "");
+  LLVMBasicBlockRef case2 = LLVMAppendBasicBlock(FN_connect_port, "");
+  LLVMBasicBlockRef sw_end = LLVMAppendBasicBlock(FN_connect_port, "");
+
+  // Define switch statement
+  LLVMValueRef sw = LLVMBuildSwitch(builder, index, sw_end, 3);
+
+  //***********************************************************************
+  //  Case 0
+  //***********************************************************************
+  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 0, 0), case0);
+  LLVMPositionBuilderAtEnd(builder, case0);
+
+  // Add body of case here
+  LLVMValueRef dat = LLVMBuildLoad(builder, data, "");
+  LLVMSetAlignment(dat, 8);
+
+  LLVMValueRef dat_array =
+    LLVMBuildBitCast(builder, dat, LLVMPointerType(LLVMFloatType(), 0), "");
+
+  LLVMValueRef plug = LLVMBuildLoad(builder, plugin, "");
+  LLVMSetAlignment(plug, 8);
+
+  LLVMValueRef indexes[] = {
+    LLVMConstInt (LLVMInt32Type (), 0, 0),
+    LLVMConstInt (LLVMInt32Type (), 0, 0)};
+
+  LLVMValueRef tt = LLVMBuildStructGEP2(builder, struct_plugin, plug, 0, "");
+  LLVMSetAlignment(LLVMBuildStore(builder, dat_array, tt), 8);
+
+  LLVMBuildBr(builder, sw_end);
+
+  //***********************************************************************
+  // Case 1
+  //***********************************************************************
+  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 1, 0), case1);
+  LLVMPositionBuilderAtEnd(builder, case1);
+
+  dat = LLVMBuildLoad(builder, data, "");
+  LLVMSetAlignment(dat, 8);
+
+  dat_array =
+    LLVMBuildBitCast(builder, dat, LLVMPointerType(LLVMFloatType(), 0), "");
+
+  plug = LLVMBuildLoad(builder, plugin, "");
+  LLVMSetAlignment(plug, 8);
+
+  tt = LLVMBuildStructGEP2(builder, struct_plugin, plug, 1, "");
+  LLVMSetAlignment(LLVMBuildStore(builder, dat_array, tt), 8);
+
+  LLVMBuildBr(builder, sw_end);
+
+  //***********************************************************************
+  // Case 2
+  //***********************************************************************
+  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 2, 0), case2);
+  LLVMPositionBuilderAtEnd(builder, case2);
+
+  dat = LLVMBuildLoad(builder, data, "");
+  LLVMSetAlignment(dat, 8);
+
+  dat_array =
+    LLVMBuildBitCast(builder, dat, LLVMPointerType(LLVMFloatType(), 0), "");
+
+  plug = LLVMBuildLoad(builder, plugin, "");
+  LLVMSetAlignment(plug, 8);
+
+  LLVMValueRef tt2 = LLVMBuildStructGEP2(builder, struct_plugin, plug, 2, "");
+  LLVMSetAlignment(LLVMBuildStore(builder, dat_array, tt2), 8);
+
+  LLVMBuildBr(builder, sw_end);
+
+  //***********************************************************************
+  // Switch end
+  //***********************************************************************
+  LLVMPositionBuilderAtEnd(builder, sw_end);
+
   LLVMBuildRet(builder, NULL);
 }
 
@@ -546,8 +659,8 @@ LLVMModuleRef emit_standard(void)
   void_ptr = LLVMPointerType(LLVMInt8Type(), 0);
   float_ptr = LLVMPointerType(LLVMFloatType(), 0);
 
-  LLVMModuleRef mod = LLVMModuleCreateWithName("min-amp");
   LLVMContextRef global = LLVMGetGlobalContext();
+  LLVMModuleRef mod = LLVMModuleCreateWithNameInContext(current_filename, global);
 
   // -------
   // This is defined by the LV2 specification
@@ -569,8 +682,14 @@ LLVMModuleRef emit_standard(void)
   // the body after we've processed all the options and global declares
   // -------
   struct_plugin = LLVMStructCreateNamed(global, "struct.Plugin");
+  LLVMStructSetBody(struct_plugin,
+    (LLVMTypeRef []) {
+      LLVMPointerType(LLVMFloatType(), 0),
+      LLVMPointerType(LLVMFloatType(), 0),
+      LLVMPointerType(LLVMFloatType(), 0)
+    }, 3, 0);
 
-  LLVMBuilderRef builder = LLVMCreateBuilder();
+  LLVMBuilderRef builder = LLVMCreateBuilderInContext(global);
 
   emit_lv2_descriptor(mod, builder);
   emit_instantiate(mod, builder);
@@ -604,6 +723,7 @@ void finish_descriptor()
   LLVMValueRef indexes[] = {
     LLVMConstInt (LLVMInt32Type (), 0, 0),
     LLVMConstInt (LLVMInt32Type (), 0, 0)};
+
   LLVMValueRef uri_ptr = LLVMConstInBoundsGEP(uri,
     indexes, 2);
 
@@ -632,13 +752,13 @@ void finish_descriptor()
 
 /*----------------------------------------------------------------------------*/
 void finish_plugin()
-{
+{ /*
   LLVMStructSetBody(struct_plugin,
     (LLVMTypeRef []) {
-      float_ptr,
-      float_ptr,
-      float_ptr
-    }, 3, 0);
+      LLVMInt32Type(),
+      LLVMInt32Type(),
+      LLVMInt32Type()
+    }, 3, 0); */
 }
 
 /*----------------------------------------------------------------------------*/
@@ -668,8 +788,10 @@ void emit_code(struct ast *a)
 
   // It's built, lets verify
   // LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
+  fprintf(stderr, "before verify\n");
   LLVMVerifyModule(mod, LLVMPrintMessageAction, &error);
   LLVMDisposeMessage(error);
+  fprintf(stderr, "after verify\n");
 
   if (LLVMWriteBitcodeToFile(mod, output_filename) != 0) {
       fprintf(stderr, "error writing bitcode to file\n");
