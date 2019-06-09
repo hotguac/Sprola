@@ -1,3 +1,15 @@
+default_output.so: default_output.o
+	/usr/lib/llvm-7/bin/ld.lld --shared -z notext -o default_output.so default_output.o
+
+default_output.o: default_output.bc default_output.ll
+	llc default_output.bc -filetype=obj
+
+default_output.ll: default_output.bc
+	/usr/local/bin/llvm-dis default_output.bc
+
+default_output.bc: sprola amp.spl
+	./sprola amp.spl
+
 sprola: sprola.tab.o lex.yy.o symbols.o ast.o codegen.o
 	clang `/usr/local/bin/llvm-config --ldflags ` \
 		-g -O0 -lm -o $@ \
