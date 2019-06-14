@@ -1,9 +1,16 @@
 #ifndef __SYMBOLS__
 #define __SYMBOLS__
 
-#define NHASH 17
+#define NHASH 6151
 
-enum symbol_type {FUNCTION_NAME, VARIABLE_NAME, MEMBER_NAME};
+enum symbol_type {FUNCTION_NAME,
+                  VARIABLE_NAME,
+                  MEMBER_NAME,
+                  INPUT_AUDIO_NAME,
+                  OUTPUT_AUDIO_NAME,
+                  INPUT_CONTROL_NAME,
+                  OUTPUT_CONTROL_NAME
+                };
 
 struct symbol {
   char *name;

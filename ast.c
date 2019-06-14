@@ -11,7 +11,7 @@
 extern void yyerror(char const*);
 extern char *current_filename;   // read source from here
 extern char *output_filename;    // write .ll output here
-extern struct symbol symtab[NHASH];
+extern struct symbol symbol_table[NHASH];
 
 void yyerror2(char *s, ...);
 

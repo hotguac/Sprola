@@ -1,5 +1,5 @@
-# Prerequisites
-*.d
+# Test wave files
+*.wav
 
 # Flex generated output
 lex.yy.c

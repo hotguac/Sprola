@@ -5,9 +5,11 @@
 
 #include "symbols.h"
 
-struct symbol symtab[NHASH];
+struct symbol symbol_table[NHASH];
 
+/*----------------------------------------------------------------------------*/
 /* hash a symbol */
+/*----------------------------------------------------------------------------*/
 static unsigned symhash(char *sym)
 {
   unsigned int hash = 0;
@@ -20,24 +22,26 @@ static unsigned symhash(char *sym)
   return hash;
 }
 
-struct symbol *lookup(char* sym)
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+struct symbol *lookup(char* id)
 {
-  struct symbol *sp = &symtab[symhash(sym)%NHASH];
+  struct symbol *sp = &symbol_table[symhash(id)%NHASH];
   int scount = NHASH;
 
   while (--scount >= 0) {
-    if (sp->name && !strcmp(sp->name, sym)) { // Got a match
+    if (sp->name && !strcmp(sp->name, id)) { // Got a match
       return sp;
     }
 
     if (!sp->name) { //  This slot is available
-      sp->name = strdup(sym);
+      sp->name = strdup(id);
       sp->reflist = 0;
       return sp;
     }
 
-    if (++sp >= symtab+NHASH) { // Wrap back to beginning to find empty slot
-      sp = symtab;
+    if (++sp >= symbol_table+NHASH) { // Wrap back to beginning to find empty slot
+      sp = symbol_table;
     }
   }
 
@@ -45,12 +49,14 @@ struct symbol *lookup(char* sym)
   abort();
 }
 
-void addref(int lineno, char *filename, char *word, int flags)
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+void addref(int lineno, char *filename, char *id, int flags)
 {
-  printf("\t\t addref %d, %s, %s, %d\n", lineno, filename, word, flags);
+  //printf("\t\t addref %d, %s, %s, %d\n", lineno, filename, id, flags);
 
   struct ref *r;
-  struct symbol *sp = lookup(word);
+  struct symbol *sp = lookup(id);
 
   /* don't do dups */
   if(sp->reflist &&
@@ -73,7 +79,9 @@ void addref(int lineno, char *filename, char *word, int flags)
   sp->reflist = r;
 }
 
+/*----------------------------------------------------------------------------*/
 /* aux function for sorting */
+/*----------------------------------------------------------------------------*/
 static int symcompare(const void *xa, const void *xb)
 {
   const struct symbol *a = (struct symbol *) xa;
@@ -93,6 +101,8 @@ static int symcompare(const void *xa, const void *xb)
   return strcmp(a->name, b->name);
 }
 
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 void printrefs()
 {
   printf("Symbol References:\n");
@@ -100,37 +110,37 @@ void printrefs()
   struct symbol *sp;
 
   /* sort the symbol table */
-  // qsort(symtab, NHASH, sizeof(struct symbol), symcompare);
+  // qsort(symbol_table, NHASH, sizeof(struct symbol), symcompare);
 
-  for (sp = symtab; sp < symtab+NHASH; sp++) {
+  for (sp = symbol_table; sp < symbol_table+NHASH; sp++) {
     if (sp->name) {
-    char *prevfn = NULL;	/* last printed filename, to skip dups */
+      char *prevfn = NULL;	/* last printed filename, to skip dups */
 
-    /* reverse the list of references */
-    struct ref *rp = sp->reflist;
-    struct ref *rpp = 0;	/* previous ref */
-    struct ref *rpn;	/* next ref */
+      /* reverse the list of references */
+      struct ref *rp = sp->reflist;
+      struct ref *rpp = 0;	/* previous ref */
+      struct ref *rpn;	/* next ref */
 
-    do {
-      rpn = rp->next;
-      rp->next = rpp;
-      rpp = rp;
-      rp = rpn;
-    } while(rp);
+      do {
+        rpn = rp->next;
+        rp->next = rpp;
+        rpp = rp;
+        rp = rpn;
+      } while(rp);
 
-    /* now print the word and its references */
-    printf("%10s", sp->name);
+      /* now print the word and its references */
+      printf("%10s", sp->name);
 
-    for (rp = rpp; rp; rp = rp->next) {
-      if (rp->filename == prevfn) {
-	     printf(" %d", rp->lineno);
-      } else {
-        printf(" %s:%d", rp->filename, rp->lineno);
-	      prevfn = rp->filename;
-      }
-    } /* end for */
+      for (rp = rpp; rp; rp = rp->next) {
+        if (rp->filename == prevfn) {
+  	     printf(" %d", rp->lineno);
+        } else {
+          printf(" %s:%d", rp->filename, rp->lineno);
+  	      prevfn = rp->filename;
+        }
+      } /* end for */
 
-    printf("\n");
-  }
+      printf("\n");
+    }
   }
 }
