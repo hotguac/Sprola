@@ -16,7 +16,7 @@
 #include "sprola.h"     /* Manually maintained */
 
 extern void yyerror(char const*);
-extern char *current_filename;   // read source from here
+extern char current_filename[100];   // read source from here
 
 %}
 

@@ -5,21 +5,30 @@
 #include "llvm-c/Target.h"
 
 #include "ast.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 extern void yyerror(char const*);
 
 extern LLVMModuleRef emit_standard(void);
 extern void finish_descriptor(void);
 
-extern char *current_filename;   // read source from here
-extern char *output_filename;    // write .ll output here
+extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
+extern char output_filename[MAX_FILENAME_SIZE];    // write .ll output here
+extern char plugin_name[MAX_FILENAME_SIZE];    // write .ll output here
+
 extern struct symbol symbol_table[NHASH];
+extern struct plugin_filenames names;
+
+extern int verbose_flag;
+extern int ll_flag;
 
 int need_option_write = 0;
 LLVMTypeRef void_ptr;
@@ -251,8 +260,6 @@ void emit_code(struct ast *a)
     return;
   }
 
-  printf("output filename = '%s'\n", output_filename);
-
   // Do the setup that's standard
   LLVMModuleRef mod = emit_standard();
 
@@ -269,9 +276,64 @@ void emit_code(struct ast *a)
   LLVMDisposeMessage(error);
   fprintf(stderr, "verify complete\n");
 
-  if (LLVMWriteBitcodeToFile(mod, output_filename) != 0) {
-      fprintf(stderr, "error writing bitcode to file\n");
+
+  struct stat st = {0};
+  int mkdir_result;
+
+  if (stat(names.bundle_dirname, &st) == -1) {
+    if (verbose_flag) {
+      printf("creating bundle directory '%s'\n", names.bundle_dirname);
+    }
+    mkdir_result = mkdir(names.bundle_dirname, S_IRWXU);
+    if (mkdir_result != 0) {
+      fprintf(stderr, "error creating bundle directory '%s' status=%d\n", names.bundle_dirname, mkdir_result);
+    }
+  } else {
+    if (verbose_flag) {
+      printf("bundle directory '%s' already exists\n", names.bundle_dirname);
+    }
+  }
+
+  if (LLVMWriteBitcodeToFile(mod, names.bc_filename) != 0) {
+    fprintf(stderr, "error writing bitcode to file %s\n", names.bc_filename);
+  }
+
+  char command[MAX_FILENAME_SIZE+100];
+  strcpy(command, "clang -shared ");
+  strcat(command, names.bc_filename);
+  strcat(command, " -o ");
+  strcat(command, names.so_filename);
+
+  if (verbose_flag) {
+    printf("clang command is '%s'\n", command);
+  }
+
+  FILE* file = popen(command, "r");
+  if (file == NULL) {
+    printf("error generating .so file '%s'", names.so_filename);
+  }
+
+  pclose(file);
+
+  if (ll_flag) {
+    strcpy(command, "llvm-dis ");
+    strcat(command, names.bc_filename);
+    strcat(command, " -o=");
+    strcat(command, names.ll_filename);
+
+    if (verbose_flag) {
+      printf("llvm command is '%s'\n", command);
+    }
+
+    FILE* file = popen(command, "r");
+    if (file == NULL) {
+      printf("error generating .ll file '%s'", names.ll_filename);
+    }
+
+    pclose(file);
   }
 
   LLVMDisposeModule(mod);
+
+  // use call to system("clang ....") or popen("clang ....", "r") to generate the .so file
 }

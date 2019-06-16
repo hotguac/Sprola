@@ -1,20 +1,11 @@
 cflags = `/usr/local/bin/llvm-config --cflags ` -Wall -g -O0 -c
 ldflags = `/usr/local/bin/llvm-config --ldflags ` -Wall -g -O0 -lm
 
-default_output.so: default_output.bc
-	clang -shared default_output.bc -o default_output.so
-
-default_output.o: default_output.bc default_output.ll
-	llc default_output.bc -filetype=obj
-
-default_output.ll: default_output.bc
-	/usr/local/bin/llvm-dis default_output.bc
-
 default_output.bc: sprola amp.spl
-	./sprola amp.spl
+	./sprola -v -l amp.spl
 
 sprola: sprola.tab.o lex.yy.o symbols.o ast.o \
-		codegen.o codegen_std.o codegen_ast.o
+		codegen.o codegen_std.o codegen_ast.o utils.o
 	clang $(ldflags) -o $@  $^ \
 		 /usr/local/lib/libLLVM.so \
 		 /usr/local/lib/libc++.so
@@ -48,10 +39,17 @@ codegen_std.o: codegen_std.c
 codegen_ast.o: codegen_ast.c
 	clang $(cflags) -o codegen_ast.o codegen_ast.c
 
+utils.o: utils.c utils.h
+	clang $(cflags) -o utils.o utils.c
+
 clean:
+	rm -f sprola 
 	rm -f *.o
 	rm -f *.so
+	rm -f *.bc
 	rm -f lex.yy.c
 	rm -f sprola.tab.*
 	rm -f sprola.output
 	rm -f default_output.*
+	rm -f SprolaTemp*.bc
+	rm -f SprolaTemp*.ll

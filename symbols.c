@@ -7,6 +7,8 @@
 
 struct symbol symbol_table[NHASH];
 
+extern int verbose_flag;
+
 /*----------------------------------------------------------------------------*/
 /* hash a symbol */
 /*----------------------------------------------------------------------------*/
@@ -53,7 +55,9 @@ struct symbol *lookup(char* id)
 /*----------------------------------------------------------------------------*/
 void addref(int lineno, char *filename, char *id, int flags)
 {
-  //printf("\t\t addref %d, %s, %s, %d\n", lineno, filename, id, flags);
+  if (verbose_flag) {
+    printf("\t\t addref %d, %s, %s, %d\n", lineno, filename, id, flags);
+  }
 
   struct ref *r;
   struct symbol *sp = lookup(id);

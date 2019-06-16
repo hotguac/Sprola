@@ -1,9 +1,19 @@
 /* Signal PROcessing LAnguage  */
 
 %{
+#include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+// use GNU version
+#define _GNU_SOURCE
+#include <libgen.h>
+
 #include <string.h>
+
 #include "ast.h"
+#include "utils.h"
 
 /* These external routines are defined in or generated from sprola.l */
 extern int yylex();
@@ -12,8 +22,12 @@ extern FILE * yyin;
 extern int yylineno;
 extern char *yytext;
 
-char *current_filename;   // read source from here
-char *output_filename;    // write .ll output here
+char current_filename[MAX_FILENAME_SIZE];   // read source from here
+
+struct plugin_filenames names;
+
+int verbose_flag = 0;
+int ll_flag = 0;
 
 extern void printrefs();
 extern void emit_code(struct ast *a);
@@ -83,37 +97,45 @@ program
   : options variable_declarations functions
     {
       $$ = newprogram($1, $2, $3);
-      printrefs();
-      printf(">>>\nDump AST\n");
-      dumpast($$, 1);
-      printf(">>>\n");
+      if (verbose_flag) {
+        printrefs();
+        printf(">>>\nDump AST\n");
+        dumpast($$, 1);
+        printf(">>>\n");
+      }
       emit_code($$);
     }
   | options functions
     {
       $$ = newprogram($1, NULL, $2);
-      printrefs();
-      printf(">>>\nDump AST\n");
-      dumpast($$, 1);
-      printf(">>>\n");
+      if (verbose_flag) {
+        printrefs();
+        printf(">>>\nDump AST\n");
+        dumpast($$, 1);
+        printf(">>>\n");
+      }
       emit_code($$);
     }
   | variable_declarations functions
     {
       $$ = newprogram(NULL, $1, $2);
-      printrefs();
-      printf(">>>\nDump AST\n");
-      dumpast($$, 1);
-      printf(">>>\n");
+      if (verbose_flag) {
+        printrefs();
+        printf(">>>\nDump AST\n");
+        dumpast($$, 1);
+        printf(">>>\n");
+      }
       emit_code($$);
     }
   | functions
     {
       $$ = newprogram(NULL, NULL, $1);
-      printrefs();
-      printf(">>>\nDump AST\n");
-      dumpast($$, 1);
-      printf(">>>\n");
+      if (verbose_flag) {
+        printrefs();
+        printf(">>>\nDump AST\n");
+        dumpast($$, 1);
+        printf(">>>\n");
+      }
       emit_code($<a>1);
     }
   ;
@@ -319,25 +341,60 @@ factor
 
 int main(int argc, char **argv)
 {
-  static const char *default_input = "stdin";
-  static const char *default_output = "default_output.bc";
+  int index;
+  int c;
 
-  if (argc > 1) {
-    current_filename = argv[1];
+  verbose_flag = 0;
 
-    if (!(yyin = fopen(argv[1], "r"))) {
-      perror(argv[1]);
+  while ((c = getopt (argc, argv, "vhl")) != -1) {
+    switch (c) {
+      case 'v':
+        verbose_flag = 1;
+        break;
+      case 'h':
+        printf("usage: sprola [-v] [-h] source\n");
+        printf("-v turn on verbose output messages\n");
+        printf("-h print this message\n");
+        printf("-l generate human readable llvm code for inspection in <source>.ll\n");
+        break;
+      case 'l':
+        ll_flag = 1;
+        break;
+      case '?':
+        if (isprint(optopt)) {
+          fprintf(stderr, "Unknown option -%c\n", optopt);
+          fprintf(stderr, "use sprola -h for help\n");
+        } else {
+          fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+          fprintf(stderr, "use sprola -h for help\n");
+        }
+        return 1;
+      default:
+        abort();
+    }
+  }
+
+  memset(current_filename, 0, MAX_FILENAME_SIZE);
+
+  for (index = optind; index < argc; index++) {
+    if (current_filename[0] == 0) {
+      strncpy(current_filename, argv[index], MAX_FILENAME_SIZE);
+    } else {
+      fprintf(stderr, "Too many arguements\n");
+      fprintf(stderr, "use sprola -h for help\n");
+    }
+  }
+
+  if (current_filename[0] == 0) {
+    strncpy(current_filename, "stdin", MAX_FILENAME_SIZE);
+  } else {
+    if (!(yyin = fopen(current_filename, "r"))) {
+      perror(current_filename);
       return (1);
     }
-  } else {
-    current_filename = strdup(default_input);
   }
 
-  if (argc > 2) {
-    output_filename = argv[2];
-  } else {
-    output_filename = strdup(default_output);
-  }
+  build_names(current_filename, &names);
 
   yyparse();
 }

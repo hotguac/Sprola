@@ -2,7 +2,7 @@
 %option Audio_In input
 %option Audio_Out output
 
-%option URI "http://joekokosa.com/plugins/sprola-amp"
+%option URI "http://example.org/plugins"
 
 void instantiate() {
 }

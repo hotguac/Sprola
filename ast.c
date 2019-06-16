@@ -6,11 +6,13 @@
 #include <stdarg.h>
 #include <string.h>
 #include <math.h>
+
 #include "ast.h"
+#include "utils.h"
 
 extern void yyerror(char const*);
-extern char *current_filename;   // read source from here
-extern char *output_filename;    // write .ll output here
+extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
+//extern char output_filename[MAX_FILENAME_SIZE];    // write .ll output here
 extern struct symbol symbol_table[NHASH];
 
 void yyerror2(char *s, ...);

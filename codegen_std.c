@@ -1,10 +1,11 @@
 #include "llvm-c/Core.h"
 
 #include "ast.h"
+#include "utils.h"
 
 #include <stdlib.h>
 
-extern char *current_filename;   // read source from here
+extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
 
 LLVMTypeRef struct_plugin;
 LLVMTypeRef struct_lv2_descriptor;
