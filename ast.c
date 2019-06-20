@@ -1,28 +1,26 @@
 /* Includes source code from "flex & bison", published by O'Reilly
  * Media, ISBN 978-0-596-15597-1 Copyright (c) 2009, Taughannock Networks.
 */
+#include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
-#include <math.h>
 
-#include "ast.h"
-#include "utils.h"
+#include "sprola.h"
+//#include "ast.h"
+//#include "utils.h"
 
 extern void yyerror(char const*);
 extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
-//extern char output_filename[MAX_FILENAME_SIZE];    // write .ll output here
 extern struct symbol symbol_table[NHASH];
-
-void yyerror2(char *s, ...);
 
 struct ast *newprogram(struct ast *options, struct ast *decls, struct ast *funcs)
 {
   struct prog *a = (struct prog *) malloc(sizeof(struct prog));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -40,7 +38,7 @@ struct ast * newast(enum node_types nodetype, struct ast *l, struct ast *r)
   struct ast *a = (struct ast *) malloc(sizeof(struct ast));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -56,7 +54,7 @@ struct ast *newoption(enum option_flags flag, struct ast* sym)
   struct setopt *a = (struct setopt *) malloc(sizeof(struct setopt));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -73,7 +71,7 @@ struct ast * newint(int d)
   struct intval *a = (struct intval *) malloc(sizeof(struct intval));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -89,7 +87,7 @@ struct ast * newasgn(struct ast *target, struct ast *value)
   struct symasgn *a = (struct symasgn *) malloc(sizeof(struct symasgn));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -105,7 +103,7 @@ struct ast *newsymref(struct symbol *s)
   struct symref *a = (struct symref *) malloc(sizeof(struct symref));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -120,7 +118,7 @@ struct ast *newvardecl(struct ast *s)
   struct var_decl *a = (struct var_decl *) malloc(sizeof(struct var_decl));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -132,10 +130,10 @@ struct ast *newvardecl(struct ast *s)
 
 struct ast *newarrayref(struct symbol *sym, struct ast *value)
 {
-  struct arrayref *a = (struct arrayref *) malloc(sizeof(struct symasgn));
+  struct arrayref *a = (struct arrayref *) malloc(sizeof(struct arrayref));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -151,7 +149,7 @@ struct ast *newfunction(int return_type, struct ast* name, struct ast* code)
   struct funcdef *a = (struct funcdef *) malloc(sizeof(struct funcdef));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -168,7 +166,7 @@ struct ast *newlessthan(struct ast *left, struct ast *right)
   struct condition *a = (struct condition *) malloc(sizeof(struct condition));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -185,7 +183,7 @@ struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, str
   struct forloop *a = (struct forloop *) malloc(sizeof(struct forloop));
 
   if (!a) {
-    yyerror2("out of space");
+    yyerror("out of space");
     exit(0);
   }
 
@@ -215,17 +213,6 @@ void treefree(struct ast *a)
   }
 
   free(a); /* always free the node itself */
-}
-
-/*----------------------------------------------------------------------------*/
-void yyerror2(char *s, ...)
-{
-  va_list ap;
-  va_start(ap, s);
-
-  fprintf(stderr, "%d: error: ", yylineno);
-  vfprintf(stderr, s, ap);
-  fprintf(stderr, "\n");
 }
 
 /*----------------------------------------------------------------------------*/

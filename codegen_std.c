@@ -3,6 +3,7 @@
 #include "ast.h"
 #include "utils.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
@@ -93,7 +94,50 @@ void emit_lv2_descriptor(LLVMModuleRef mod, LLVMBuilderRef builder)
 }
 
 /*----------------------------------------------------------------------------*/
-void emit_instantiate(LLVMModuleRef mod, LLVMBuilderRef builder)
+int get_num_ports(struct ast *a)
+{
+  int result = 0;
+
+  if (a == NULL) {
+    return result;
+  }
+
+  switch (a->nodetype) {
+    case N_program:
+      result = get_num_ports(((struct prog *)a)->opts);
+      break;
+    case N_options:
+      result = get_num_ports(a->l) + get_num_ports(a->r);
+      break;
+    case N_option:
+      switch (((struct setopt *)a)->option_flag) {
+        case OPT_audio_input:
+          result = 1;
+          break;
+        case OPT_audio_output:
+          result = 1;
+          break;
+        case OPT_control_in:
+          result = 1;
+          break;
+        case OPT_control_out:
+          result = 1;
+          break;
+        default:
+          result = 0;
+          break;
+      }
+      break;
+    default:
+      result = 0;
+      break;
+  }
+
+  return result;
+}
+
+/*----------------------------------------------------------------------------*/
+void emit_instantiate(LLVMModuleRef mod, LLVMBuilderRef builder, struct ast *a)
 {
   // -------
   // define the stock instantiate function,
@@ -135,14 +179,15 @@ void emit_instantiate(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMSetAlignment(LLVMBuildStore(builder, LLVMGetParam(FN_instantiate, 2), bundle_path), 8);
   LLVMSetAlignment(LLVMBuildStore(builder, LLVMGetParam(FN_instantiate, 3), features), 8);
 
-  //TODO: add noalias : Define external function malloc
+  //TODO(jkokosa): add noalias : Define external function malloc
   LLVMTypeRef malloc_type = LLVMFunctionType(LLVMPointerType(LLVMInt8Type(), 0),
     (LLVMTypeRef []) { LLVMInt64Type()}, 1, 0);
   LLVMValueRef ext_malloc = LLVMAddFunction(mod, "malloc", malloc_type);
   LLVMSetLinkage(ext_malloc, LLVMExternalLinkage);
 
-  //TODO: build the size, i.e. 24, programatically instead of hard code
-  LLVMValueRef args[] = { LLVMConstInt(LLVMInt64Type(), 24, 0) };
+  int arg_size = get_num_ports(a) * sizeof(float *);
+
+  LLVMValueRef args[] = { LLVMConstInt(LLVMInt64Type(), arg_size, 0) };
   LLVMValueRef result = LLVMBuildCall(builder, ext_malloc, args, 1, "");
 
   LLVMValueRef cast = LLVMBuildBitCast(builder, result, LLVMPointerType(struct_plugin, 0), "");
@@ -157,7 +202,7 @@ void emit_instantiate(LLVMModuleRef mod, LLVMBuilderRef builder)
 }
 
 /*----------------------------------------------------------------------------*/
-void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder)
+void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder, struct ast *a)
 {
   // -------
   // define the connect_port function, the body statements will be added later
@@ -204,73 +249,40 @@ void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder)
 
   //***********************************************************************
   // Set up switch statement blocks
-  //TODO: the number of cases should be built based on number of option ports
   //***********************************************************************
-  LLVMBasicBlockRef case0 = LLVMAppendBasicBlock(FN_connect_port, "");
-  LLVMBasicBlockRef case1 = LLVMAppendBasicBlock(FN_connect_port, "");
-  LLVMBasicBlockRef case2 = LLVMAppendBasicBlock(FN_connect_port, "");
+  //TODO(jkokosa) move sw_end to end of function
   LLVMBasicBlockRef sw_end = LLVMAppendBasicBlock(FN_connect_port, "");
 
   // Define switch statement
   LLVMValueRef sw = LLVMBuildSwitch(builder, index, sw_end, 3);
 
-  //***********************************************************************
-  //  Case 0
-  //***********************************************************************
-  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 0, 0), case0);
-  LLVMPositionBuilderAtEnd(builder, case0);
+  int num_ports = get_num_ports(a);
+  int port_num;
+  LLVMValueRef dat;
+  LLVMValueRef dat_array;
+  LLVMValueRef plug;
+  LLVMValueRef tt;
+  LLVMBasicBlockRef caseN;
 
-  // Add body of case here
-  LLVMValueRef dat = LLVMBuildLoad(builder, data, "");
-  LLVMSetAlignment(dat, 8);
+  for (port_num = 0; port_num < num_ports; port_num++) {
+    caseN = LLVMAppendBasicBlock(FN_connect_port, "");
+    LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), port_num, 0), caseN);
+    LLVMPositionBuilderAtEnd(builder, caseN);
 
-  LLVMValueRef dat_array = LLVMBuildBitCast(builder, dat, LLVMPointerType(LLVMFloatType(), 0), "");
+    // Add body of case here
+    dat = LLVMBuildLoad(builder, data, "");
+    LLVMSetAlignment(dat, 8);
 
-  LLVMValueRef plug = LLVMBuildLoad(builder, plugin, "");
-  LLVMSetAlignment(plug, 8);
+    dat_array = LLVMBuildBitCast(builder, dat, LLVMPointerType(LLVMFloatType(), 0), "");
 
-  LLVMValueRef tt = LLVMBuildStructGEP2(builder, struct_plugin, plug, 0, "");
-  LLVMSetAlignment(LLVMBuildStore(builder, dat_array, tt), 8);
+    plug = LLVMBuildLoad(builder, plugin, "");
+    LLVMSetAlignment(plug, 8);
 
-  LLVMBuildBr(builder, sw_end);
+    tt = LLVMBuildStructGEP2(builder, struct_plugin, plug, port_num, "");
+    LLVMSetAlignment(LLVMBuildStore(builder, dat_array, tt), 8);
 
-  //***********************************************************************
-  // Case 1
-  //***********************************************************************
-  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 1, 0), case1);
-  LLVMPositionBuilderAtEnd(builder, case1);
-
-  dat = LLVMBuildLoad(builder, data, "");
-  LLVMSetAlignment(dat, 8);
-
-  dat_array = LLVMBuildBitCast(builder, dat, LLVMPointerType(LLVMFloatType(), 0), "");
-
-  plug = LLVMBuildLoad(builder, plugin, "");
-  LLVMSetAlignment(plug, 8);
-
-  tt = LLVMBuildStructGEP2(builder, struct_plugin, plug, 1, "");
-  LLVMSetAlignment(LLVMBuildStore(builder, dat_array, tt), 8);
-
-  LLVMBuildBr(builder, sw_end);
-
-  //***********************************************************************
-  // Case 2
-  //***********************************************************************
-  LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), 2, 0), case2);
-  LLVMPositionBuilderAtEnd(builder, case2);
-
-  dat = LLVMBuildLoad(builder, data, "");
-  LLVMSetAlignment(dat, 8);
-
-  dat_array = LLVMBuildBitCast(builder, dat, LLVMPointerType(LLVMFloatType(), 0), "");
-
-  plug = LLVMBuildLoad(builder, plugin, "");
-  LLVMSetAlignment(plug, 8);
-
-  LLVMValueRef tt2 = LLVMBuildStructGEP2(builder, struct_plugin, plug, 2, "");
-  LLVMSetAlignment(LLVMBuildStore(builder, dat_array, tt2), 8);
-
-  LLVMBuildBr(builder, sw_end);
+    LLVMBuildBr(builder, sw_end);
+  }
 
   //***********************************************************************
   // Switch end
@@ -458,7 +470,7 @@ void finish_descriptor(void)
 }
 
 /*----------------------------------------------------------------------------*/
-LLVMModuleRef emit_standard(void)
+LLVMModuleRef emit_standard(struct ast *a)
 {
   void_ptr = LLVMPointerType(LLVMInt8Type(), 0);
   float_ptr = LLVMPointerType(LLVMFloatType(), 0);
@@ -484,18 +496,20 @@ LLVMModuleRef emit_standard(void)
   // the body after we've processed all the options and global declares
   // -------
   struct_plugin = LLVMStructCreateNamed(global, "struct.Plugin");
-  LLVMStructSetBody(struct_plugin,
-    (LLVMTypeRef []) {
-      LLVMPointerType(LLVMFloatType(), 0),
-      LLVMPointerType(LLVMFloatType(), 0),
-      LLVMPointerType(LLVMFloatType(), 0)
-    }, 3, 0);
+
+  int num_ports = get_num_ports(a);
+  LLVMTypeRef plugin_body[num_ports];
+
+  for (int i = 0; i < num_ports; ++i) {
+    plugin_body[i] = LLVMPointerType(LLVMFloatType(), 0);
+  }
+  LLVMStructSetBody(struct_plugin, plugin_body, num_ports, 0);
 
   LLVMBuilderRef builder = LLVMCreateBuilderInContext(global);
 
   emit_lv2_descriptor(mod, builder);
-  emit_instantiate(mod, builder);
-  emit_connect_port(mod, builder);
+  emit_instantiate(mod, builder, a);
+  emit_connect_port(mod, builder, a);
   emit_activate(mod, builder);
   emit_run(mod, builder);
   emit_deactivate(mod, builder);

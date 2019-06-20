@@ -1,27 +1,26 @@
-#include "llvm-c/Core.h"
-#include "llvm-c/Types.h"
 #include "llvm-c/Analysis.h"
-#include "llvm-c/BitWriter.h"
+#include "llvm-c/Core.h"
 #include "llvm-c/Target.h"
 
 #include "ast.h"
+#include "sprola.h"
 #include "utils.h"
 
+#include <bsd/string.h>
+#include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
-#include <math.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 extern void yyerror(char const*);
 
-extern LLVMModuleRef emit_standard(void);
+extern LLVMModuleRef emit_standard(struct ast *a);
 extern void finish_descriptor(void);
 
 extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
-extern char output_filename[MAX_FILENAME_SIZE];    // write .ll output here
 extern char plugin_name[MAX_FILENAME_SIZE];    // write .ll output here
 
 extern struct symbol symbol_table[NHASH];
@@ -52,9 +51,8 @@ LLVMValueRef FN_descriptor;
 /*----------------------------------------------------------------------------*/
 void emit_option(LLVMModuleRef mod, struct ast *a)
 {
-  int len;
+  size_t len;
   char *literal;
-  char *lit;
 
   if (a == NULL) {
     return;
@@ -93,7 +91,7 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
     case OPT_uri:
       len = strlen(((struct symref *) opt->target)->sym->name);
       literal = strndup((((struct symref *) opt->target)->sym->name)+1,len-2);
-      lit = strcat(literal, "\00");
+      strlcat(literal, "\00", 3);
 
       uri = LLVMAddGlobal(mod, LLVMArrayType(LLVMInt8Type(), len-1), "URI_string");
 
@@ -102,7 +100,8 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
       LLVMSetGlobalConstant(uri, 1);
 
       // Initialize with string:
-      LLVMSetInitializer(uri, LLVMConstString(lit, len-1, 1));
+      LLVMSetInitializer(uri, LLVMConstString(literal, len-1, 1));
+      free(literal);
       break;
   }
 }
@@ -243,7 +242,7 @@ void emit_functions(LLVMModuleRef mod, struct ast *a)
         break;
       default:
         fprintf(stderr, "expecting functions or function, found %d\n",
-          a->l->nodetype);
+          a->r->nodetype);
         return;
     }
   }
@@ -261,7 +260,8 @@ void emit_code(struct ast *a)
   }
 
   // Do the setup that's standard
-  LLVMModuleRef mod = emit_standard();
+  LLVMInitializeNativeTarget();
+  LLVMModuleRef mod = emit_standard(a);
 
   // Do the rest
   emit_options(mod, ((struct prog *) a)->opts);
@@ -277,63 +277,11 @@ void emit_code(struct ast *a)
   fprintf(stderr, "verify complete\n");
 
 
-  struct stat st = {0};
-  int mkdir_result;
-
-  if (stat(names.bundle_dirname, &st) == -1) {
-    if (verbose_flag) {
-      printf("creating bundle directory '%s'\n", names.bundle_dirname);
-    }
-    mkdir_result = mkdir(names.bundle_dirname, S_IRWXU);
-    if (mkdir_result != 0) {
-      fprintf(stderr, "error creating bundle directory '%s' status=%d\n", names.bundle_dirname, mkdir_result);
-    }
-  } else {
-    if (verbose_flag) {
-      printf("bundle directory '%s' already exists\n", names.bundle_dirname);
-    }
-  }
-
-  if (LLVMWriteBitcodeToFile(mod, names.bc_filename) != 0) {
-    fprintf(stderr, "error writing bitcode to file %s\n", names.bc_filename);
-  }
-
-  char command[MAX_FILENAME_SIZE+100];
-  strcpy(command, "clang -shared ");
-  strcat(command, names.bc_filename);
-  strcat(command, " -o ");
-  strcat(command, names.so_filename);
-
-  if (verbose_flag) {
-    printf("clang command is '%s'\n", command);
-  }
-
-  FILE* file = popen(command, "r");
-  if (file == NULL) {
-    printf("error generating .so file '%s'", names.so_filename);
-  }
-
-  pclose(file);
-
-  if (ll_flag) {
-    strcpy(command, "llvm-dis ");
-    strcat(command, names.bc_filename);
-    strcat(command, " -o=");
-    strcat(command, names.ll_filename);
-
-    if (verbose_flag) {
-      printf("llvm command is '%s'\n", command);
-    }
-
-    FILE* file = popen(command, "r");
-    if (file == NULL) {
-      printf("error generating .ll file '%s'", names.ll_filename);
-    }
-
-    pclose(file);
-  }
+  generate_bundle(mod, &names);
+  emit_plugin_ttl(mod, a, &names);
+  emit_manifest_ttl(mod, a, &names);
 
   LLVMDisposeModule(mod);
+  LLVMShutdown();
 
-  // use call to system("clang ....") or popen("clang ....", "r") to generate the .so file
 }

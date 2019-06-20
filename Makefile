@@ -1,11 +1,11 @@
 cflags = `/usr/local/bin/llvm-config --cflags ` -Wall -g -O0 -c
-ldflags = `/usr/local/bin/llvm-config --ldflags ` -Wall -g -O0 -lm
+ldflags = `/usr/local/bin/llvm-config --ldflags ` -Wall -g -O0 -lm -lbsd
 
-default_output.bc: sprola amp.spl
-	./sprola -v -l amp.spl
+always.run: sprola amp.spl
+	./sprola -l amp.spl
 
 sprola: sprola.tab.o lex.yy.o symbols.o ast.o \
-		codegen.o codegen_std.o codegen_ast.o utils.o
+		codegen.o codegen_std.o codegen_ast.o codegen_ttl.o utils.o
 	clang $(ldflags) -o $@  $^ \
 		 /usr/local/lib/libLLVM.so \
 		 /usr/local/lib/libc++.so
@@ -39,17 +39,22 @@ codegen_std.o: codegen_std.c
 codegen_ast.o: codegen_ast.c
 	clang $(cflags) -o codegen_ast.o codegen_ast.c
 
+codegen_ttl.o: codegen_ttl.c
+	clang $(cflags) -o codegen_ttl.o codegen_ttl.c
+
 utils.o: utils.c utils.h
 	clang $(cflags) -o utils.o utils.c
 
 clean:
-	rm -f sprola 
+	rm -f sprola
 	rm -f *.o
 	rm -f *.so
 	rm -f *.bc
 	rm -f lex.yy.c
 	rm -f sprola.tab.*
 	rm -f sprola.output
-	rm -f default_output.*
-	rm -f SprolaTemp*.bc
-	rm -f SprolaTemp*.ll
+
+tidy:
+	clang-tidy  \
+		-checks=clang-*,bug*,cert-*,mod*,llvm*,-llvm-header-guard,goog*,fuch*,perf*,port*,read* \
+		-header-filter=.* *.c *.h

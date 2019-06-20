@@ -1,10 +1,10 @@
 /* Includes Source code from "flex & bison", published by O'Reilly
  * Media, ISBN 978-0-596-15597-1 Copyright (c) 2009, Taughannock Networks.
 */
+#ifndef AST_H
+#define AST_H
 
-#include "symbols.h"
-
-extern struct symbol *lookup(char*);
+//#include "symbols.h"
 
 enum node_types {
   N_program = 1,
@@ -149,10 +149,10 @@ struct ast *newsymref(struct symbol *s);
 struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block);
 struct ast *newlessthan(struct ast *left, struct ast *right);
 struct ast *newfunction(int return_type, struct ast* name, struct ast* code);
-struct ast *newoption(enum option_flags, struct ast* sym);
+struct ast *newoption(enum option_flags flag, struct ast* sym);
 
 /* delete and free an AST */
-void treefree(struct ast *);
+void treefree(struct ast * a);
 
 /* interface to the lexer */
 extern int yylineno; /* from lexer */
@@ -160,3 +160,5 @@ extern int yylineno; /* from lexer */
 
 extern int debug;
 void dumpast(struct ast *a, int level);
+
+#endif
