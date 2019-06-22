@@ -15,6 +15,7 @@ extern void yyerror(char const*);
 extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
 extern struct symbol symbol_table[NHASH];
 
+/*----------------------------------------------------------------------------*/
 struct ast *newprogram(struct ast *options, struct ast *decls, struct ast *funcs)
 {
   struct prog *a = (struct prog *) malloc(sizeof(struct prog));
@@ -49,6 +50,7 @@ struct ast * newast(enum node_types nodetype, struct ast *l, struct ast *r)
   return a;
 }
 
+/*----------------------------------------------------------------------------*/
 struct ast *newoption(enum option_flags flag, struct ast* sym)
 {
   struct setopt *a = (struct setopt *) malloc(sizeof(struct setopt));
@@ -98,6 +100,7 @@ struct ast * newasgn(struct ast *target, struct ast *value)
   return (struct ast *)a;
 }
 
+/*----------------------------------------------------------------------------*/
 struct ast *newsymref(struct symbol *s)
 {
   struct symref *a = (struct symref *) malloc(sizeof(struct symref));
@@ -113,6 +116,7 @@ struct ast *newsymref(struct symbol *s)
   return (struct ast *)a;
 }
 
+/*----------------------------------------------------------------------------*/
 struct ast *newvardecl(struct ast *s)
 {
   struct var_decl *a = (struct var_decl *) malloc(sizeof(struct var_decl));
@@ -128,6 +132,7 @@ struct ast *newvardecl(struct ast *s)
   return (struct ast *)a;
 }
 
+/*----------------------------------------------------------------------------*/
 struct ast *newarrayref(struct symbol *sym, struct ast *value)
 {
   struct arrayref *a = (struct arrayref *) malloc(sizeof(struct arrayref));
@@ -144,6 +149,7 @@ struct ast *newarrayref(struct symbol *sym, struct ast *value)
   return (struct ast *)a;
 }
 
+/*----------------------------------------------------------------------------*/
 struct ast *newfunction(int return_type, struct ast* name, struct ast* code)
 {
   struct funcdef *a = (struct funcdef *) malloc(sizeof(struct funcdef));
@@ -161,6 +167,7 @@ struct ast *newfunction(int return_type, struct ast* name, struct ast* code)
   return (struct ast *)a;
 }
 
+/*----------------------------------------------------------------------------*/
 struct ast *newlessthan(struct ast *left, struct ast *right)
 {
   struct condition *a = (struct condition *) malloc(sizeof(struct condition));
@@ -178,6 +185,7 @@ struct ast *newlessthan(struct ast *left, struct ast *right)
   return (struct ast *)a;
 }
 
+/*----------------------------------------------------------------------------*/
 struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block)
 {
   struct forloop *a = (struct forloop *) malloc(sizeof(struct forloop));
@@ -209,7 +217,7 @@ void treefree(struct ast *a)
       break;
 
     default:
-      printf("internal error: free bad node %c\n", a->nodetype);
+      fprintf(stderr, "internal error: free bad node %c\n", a->nodetype);
   }
 
   free(a); /* always free the node itself */

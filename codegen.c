@@ -18,7 +18,7 @@
 extern void yyerror(char const*);
 
 extern LLVMModuleRef emit_standard(struct ast *a);
-extern void finish_descriptor(void);
+extern void finish_descriptor(LLVMValueRef uri);
 
 extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
 extern char plugin_name[MAX_FILENAME_SIZE];    // write .ll output here
@@ -53,6 +53,10 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
 {
   size_t len;
   char *literal;
+
+  if (verbose_flag) {
+    fprintf(stderr, "emitting option...\n");
+  }
 
   if (a == NULL) {
     return;
@@ -109,13 +113,16 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
 /*----------------------------------------------------------------------------*/
 void emit_options(LLVMModuleRef mod, struct ast *a)
 {
+  if (verbose_flag) {
+    fprintf(stderr, "emitting options...\n");
+  }
+
   if (a == NULL) {
     return;
   }
 
   if (a->nodetype != N_options) {
-    fprintf(stderr, "expecting an options list, found nodetype %d",
-      a->nodetype);
+    fprintf(stderr, "expecting an options list, found nodetype %d", a->nodetype);
     return;
   }
 
@@ -153,6 +160,10 @@ void emit_options(LLVMModuleRef mod, struct ast *a)
 /*----------------------------------------------------------------------------*/
 void emit_declarations(LLVMModuleRef mod, struct ast *a)
 {
+  if (verbose_flag) {
+    fprintf(stderr, "emitting declarations...\n");
+  }
+
   if (a == NULL) {
     return;
   }
@@ -168,6 +179,10 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
   LLVMBasicBlockRef entry;
 
   char *name;
+
+  if (verbose_flag) {
+    fprintf(stderr, "emitting function definition...\n");
+  }
 
   if (fn == NULL) {
     return;
@@ -207,6 +222,10 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
 /*----------------------------------------------------------------------------*/
 void emit_functions(LLVMModuleRef mod, struct ast *a)
 {
+  if (verbose_flag) {
+    fprintf(stderr, "emitting functions...\n");
+  }
+
   if (a == NULL) {
     return;
   }
@@ -253,6 +272,10 @@ void emit_code(struct ast *a)
 {
   char *error = NULL;
 
+  if (verbose_flag) {
+    fprintf(stderr, "emitting code...\n");
+  }
+
   if (a->nodetype != N_program) {
     fprintf(stderr, "error: top level ast node is not a program\n");
     fprintf(stderr, "nodetype is %d\n", a->nodetype);
@@ -268,7 +291,7 @@ void emit_code(struct ast *a)
   emit_declarations(mod, ((struct prog *) a)->decls);
   emit_functions(mod, ((struct prog *) a)->funcs);
 
-  finish_descriptor();
+  finish_descriptor(uri);
 
   // It's built, lets verify
   fprintf(stderr, "verifying generated bit code...\n");
@@ -277,7 +300,7 @@ void emit_code(struct ast *a)
   fprintf(stderr, "verify complete\n");
 
 
-  generate_bundle(mod, &names);
+  generate_obj_lib(mod, &names);
   emit_plugin_ttl(mod, a, &names);
   emit_manifest_ttl(mod, a, &names);
 

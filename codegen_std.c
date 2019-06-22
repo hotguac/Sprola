@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
+extern int verbose_flag;
 
 LLVMTypeRef struct_plugin;
 LLVMTypeRef struct_lv2_descriptor;
@@ -15,7 +16,7 @@ LLVMValueRef global_descriptor;
 
 LLVMTypeRef void_ptr;
 LLVMTypeRef float_ptr;
-LLVMValueRef uri;
+//extern LLVMValueRef uri;
 
 LLVMValueRef FN_descriptor;
 LLVMValueRef FN_instantiate;
@@ -250,7 +251,6 @@ void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder, struct ast *a)
   //***********************************************************************
   // Set up switch statement blocks
   //***********************************************************************
-  //TODO(jkokosa) move sw_end to end of function
   LLVMBasicBlockRef sw_end = LLVMAppendBasicBlock(FN_connect_port, "");
 
   // Define switch statement
@@ -265,7 +265,7 @@ void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder, struct ast *a)
   LLVMBasicBlockRef caseN;
 
   for (port_num = 0; port_num < num_ports; port_num++) {
-    caseN = LLVMAppendBasicBlock(FN_connect_port, "");
+    caseN = LLVMInsertBasicBlock(sw_end, "");
     LLVMAddCase(sw, LLVMConstInt(LLVMInt32Type(), port_num, 0), caseN);
     LLVMPositionBuilderAtEnd(builder, caseN);
 
@@ -428,8 +428,12 @@ void emit_extension_data(LLVMModuleRef mod, LLVMBuilderRef builder)
 }
 
 /*----------------------------------------------------------------------------*/
-void finish_descriptor(void)
+void finish_descriptor(LLVMValueRef uri)
 {
+  if (verbose_flag) {
+    fprintf(stderr, "Finishing descriptor...\n");
+  }
+
   LLVMStructSetBody(struct_lv2_descriptor, (LLVMTypeRef []) {
     void_ptr,
     LLVMTypeOf(FN_instantiate),
@@ -472,6 +476,10 @@ void finish_descriptor(void)
 /*----------------------------------------------------------------------------*/
 LLVMModuleRef emit_standard(struct ast *a)
 {
+  if (verbose_flag) {
+    fprintf(stderr, "emitting standard functions...\n");
+  }
+
   void_ptr = LLVMPointerType(LLVMInt8Type(), 0);
   float_ptr = LLVMPointerType(LLVMFloatType(), 0);
 
@@ -493,11 +501,18 @@ LLVMModuleRef emit_standard(struct ast *a)
 
   // -------
   // This is the structure that holds all the global fields, we'll fill
-  // the body after we've processed all the options and global declares
+  // the body with the defined ports and all the global variables
+  //TODO(jkokosa) scan for global variables
   // -------
   struct_plugin = LLVMStructCreateNamed(global, "struct.Plugin");
 
   int num_ports = get_num_ports(a);
+
+  if (num_ports < 1) {
+    fprintf(stderr, "Error - no ports found in input source\n");
+    exit(1);
+  }
+
   LLVMTypeRef plugin_body[num_ports];
 
   for (int i = 0; i < num_ports; ++i) {
