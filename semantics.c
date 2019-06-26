@@ -1,18 +1,15 @@
-#include "ast.h"
+#include "sprola.h"
 
+#include <bsd/string.h>
+#include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
-#include <math.h>
 
-extern void yyerror(char const*);
+#include "llvm-c/Core.h"
 
-extern void finish_descriptor(void);
-
-extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
-extern char output_filename[MAX_FILENAME_SIZE];    // write .ll output here
-extern struct symbol symbol_table[NHASH];
+void yyerror(char const*);
 
 /*----------------------------------------------------------------------------*/
 void check_option(LLVMModuleRef mod, struct ast *a)
@@ -49,7 +46,8 @@ void check_option(LLVMModuleRef mod, struct ast *a)
     case OPT_uri:
       len = strlen(((struct symref *) opt->target)->sym->name);
       literal = strndup((((struct symref *) opt->target)->sym->name)+1,len-2);
-      lit = strcat(literal, "\00");
+      strlcat(literal, "\00", 3);
+      free(literal);
       break;
   }
 }
@@ -123,7 +121,6 @@ void check_func_def(LLVMModuleRef mod, struct ast *a)
   }
 
   name = fn->name->sym->name;
-  return_value = NULL;
 
   if (strcmp(name, "run") == 0) {
   } else if (strcmp(name, "instantiate") == 0) {
@@ -175,25 +172,27 @@ void check_functions(LLVMModuleRef mod, struct ast *a)
         break;
       default:
         fprintf(stderr, "expecting functions or function, found %d\n",
-          a->l->nodetype);
+          a->r->nodetype);
         return;
     }
   }
 }
 
 /*----------------------------------------------------------------------------*/
-void check_code(struct ast *a)
+void check_code(LLVMModuleRef mod, struct ast *a)
 {
   char *error = NULL;
 
-  if (a->nodetype != N_program) {
-    fprintf(stderr, "error: top level ast node is not a program\n");
-    fprintf(stderr, "nodetype is %d\n", a->nodetype);
-    return;
-  }
-
+  if (a != NULL) {
+    if (a->nodetype != N_program) {
+      fprintf(stderr, "error: top level ast node is not a program\n");
+      fprintf(stderr, "nodetype is %d\n", a->nodetype);
+      return;
+    }
   // Do the rest
   check_options(mod, ((struct prog *) a)->opts);
   check_declarations(mod, ((struct prog *) a)->decls);
   check_functions(mod, ((struct prog *) a)->funcs);
+  }
+
 }

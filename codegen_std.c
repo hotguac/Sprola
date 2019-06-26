@@ -1,13 +1,11 @@
 #include "llvm-c/Core.h"
 
 #include "ast.h"
+#include "sprola.h"
 #include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-
-extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
-extern int verbose_flag;
 
 LLVMTypeRef struct_plugin;
 LLVMTypeRef struct_lv2_descriptor;
@@ -16,7 +14,6 @@ LLVMValueRef global_descriptor;
 
 LLVMTypeRef void_ptr;
 LLVMTypeRef float_ptr;
-//extern LLVMValueRef uri;
 
 LLVMValueRef FN_descriptor;
 LLVMValueRef FN_instantiate;

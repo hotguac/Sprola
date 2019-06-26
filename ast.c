@@ -8,12 +8,8 @@
 #include <string.h>
 
 #include "sprola.h"
-//#include "ast.h"
-//#include "utils.h"
 
-extern void yyerror(char const*);
-extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
-extern struct symbol symbol_table[NHASH];
+void yyerror(char const*);
 
 /*----------------------------------------------------------------------------*/
 struct ast *newprogram(struct ast *options, struct ast *decls, struct ast *funcs)

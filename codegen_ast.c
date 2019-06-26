@@ -8,11 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern void yyerror(char const*);
-
-extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
-
-extern struct symbol symbol_table[NHASH];
+void yyerror(char const*);
 
 /*----------------------------------------------------------------------------*/
 void emit_x(LLVMModuleRef mod, struct ast *a)

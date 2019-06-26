@@ -1,13 +1,11 @@
 #include "sprola.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
 #include "symbols.h"
 
-struct symbol symbol_table[NHASH];
+#include <bsd/string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-extern int verbose_flag;
+struct symbol symbol_table[NHASH];
 
 /*----------------------------------------------------------------------------*/
 /* hash a symbol */
@@ -56,7 +54,7 @@ struct symbol *lookup(char* id)
 void addref(int lineno, char *filename, char *id, int flags)
 {
   if (verbose_flag) {
-    printf("\t\t addref %d, %s, %s, %d\n", lineno, filename, id, flags);
+    fprintf(stderr, "\t\t addref %d, %s, %s, %d\n", lineno, filename, id, flags);
   }
 
   struct ref *r;
@@ -81,28 +79,6 @@ void addref(int lineno, char *filename, char *id, int flags)
   r->flags = flags;
 
   sp->reflist = r;
-}
-
-/*----------------------------------------------------------------------------*/
-/* aux function for sorting */
-/*----------------------------------------------------------------------------*/
-static int symcompare(const void *xa, const void *xb)
-{
-  const struct symbol *a = (struct symbol *) xa;
-  const struct symbol *b = (struct symbol *) xb;
-
-  if (!a->name) {
-    if (!b->name) {
-      return 0;	/* both empty */
-    }
-    return 1;			/* put empties at the end */
-  }
-
-  if (!b->name) {
-    return -1;
-  }
-
-  return strcmp(a->name, b->name);
 }
 
 /*----------------------------------------------------------------------------*/

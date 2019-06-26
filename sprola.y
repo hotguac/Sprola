@@ -13,25 +13,18 @@
 #include <string.h>
 
 #include "ast.h"
+#include "sprola.h"
 #include "utils.h"
-
-/* These external routines are defined in or generated from sprola.l */
-extern int yylex();
-extern int yyparse();
-extern FILE * yyin;
-extern int yylineno;
-extern char *yytext;
 
 char current_filename[MAX_FILENAME_SIZE];   // read source from here
 
-struct plugin_filenames names;
 
 int verbose_flag = 0;
 int ll_flag = 0;
 
-extern void printrefs();
-extern void emit_code(struct ast *a);
-extern struct symbol *lookup(char* sym);
+void printrefs();
+void emit_code(struct ast *a);
+struct symbol *lookup(char* sym);
 
 /* Forward declaration for routines defined below in code section */
 void yyerror(char const*);
@@ -147,7 +140,7 @@ options
     }
   | option
     {
-      $$ = $1;
+      $$ = newast(N_options, NULL, $1);
     }
   ;
 

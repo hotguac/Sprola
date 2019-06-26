@@ -4,8 +4,6 @@
 #ifndef AST_H
 #define AST_H
 
-//#include "symbols.h"
-
 enum node_types {
   N_program = 1,
   N_functions,
@@ -155,8 +153,6 @@ struct ast *newoption(enum option_flags flag, struct ast* sym);
 void treefree(struct ast * a);
 
 /* interface to the lexer */
-extern int yylineno; /* from lexer */
-// void yyerror(char *s, ...);
 
 extern int debug;
 void dumpast(struct ast *a, int level);

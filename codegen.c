@@ -15,21 +15,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-extern void yyerror(char const*);
+void yyerror(char const*);
 
-extern LLVMModuleRef emit_standard(struct ast *a);
-extern void finish_descriptor(LLVMValueRef uri);
+LLVMModuleRef emit_standard(struct ast *a);
+void finish_descriptor(LLVMValueRef uri);
 
-extern char current_filename[MAX_FILENAME_SIZE];   // read source from here
-extern char plugin_name[MAX_FILENAME_SIZE];    // write .ll output here
-
-extern struct symbol symbol_table[NHASH];
-extern struct plugin_filenames names;
-
-extern int verbose_flag;
-extern int ll_flag;
-
-int need_option_write = 0;
 LLVMTypeRef void_ptr;
 LLVMTypeRef float_ptr;
 LLVMTypeRef struct_plugin;
@@ -76,21 +66,17 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
       // save up in's and out's, plus other global declarations
       // into a table, set flag, and then when we hit the first function
       // write IR later using LLVMStructType()
-      need_option_write = 1;
       // but for now, just declare a simple variable
-      LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
+      //  LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_audio_output:
-      need_option_write = 1;
-      LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
+      //LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_control_in:
-      need_option_write = 1;
-      LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
+      //LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_control_out:
-      need_option_write = 1;
-      LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
+      //LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_uri:
       len = strlen(((struct symref *) opt->target)->sym->name);

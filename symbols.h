@@ -33,5 +33,6 @@ struct ref {
   int lineno;
 };
 
+extern struct symbol symbol_table[NHASH];
 
 #endif

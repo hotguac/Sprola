@@ -2,7 +2,7 @@ cflags = `/usr/local/bin/llvm-config --cflags ` -Wall -g -O0 -c
 ldflags = `/usr/local/bin/llvm-config --ldflags ` -Wall -g -O0 -lm -lbsd
 
 always.run: sprola amp.spl
-	./sprola -l amp.spl
+	./sprola -v -l amp.spl
 
 sprola: sprola.tab.o lex.yy.o symbols.o ast.o \
 		codegen.o codegen_std.o codegen_ast.o codegen_ttl.o utils.o
