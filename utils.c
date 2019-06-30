@@ -119,7 +119,9 @@ int get_plugin_name(char *name, char *path)
   return strlen(name);
 }
 
-/*----------------------------------------------------------------------------*/
+//----------------------------------------------------------------------------
+//TODO(jkokosa) - run optimize passes including 'memory to register promotion'
+//----------------------------------------------------------------------------
 void generate_obj_lib(LLVMModuleRef mod, struct plugin_filenames *names)
 {
   char command[MAX_FILENAME_SIZE+100];

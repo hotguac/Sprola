@@ -142,7 +142,7 @@ struct ast *newast(enum node_types nodetype, struct ast *l, struct ast *r);
 struct ast *newasgn(struct ast *target, struct ast *value);
 struct ast *newarrayref(struct symbol *s, struct ast *v);
 struct ast *newint(int d);
-struct ast *newvardecl(struct ast *s);
+struct ast *newvardecl(char *type, struct ast *s);
 struct ast *newsymref(struct symbol *s);
 struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block);
 struct ast *newlessthan(struct ast *left, struct ast *right);

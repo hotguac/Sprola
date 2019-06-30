@@ -1,11 +1,14 @@
 #include "llvm-c/Core.h"
 
 #include "ast.h"
+#include "codegen.h"
 #include "sprola.h"
 #include "utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+LLVMContextRef global_context;
 
 LLVMTypeRef struct_plugin;
 LLVMTypeRef struct_lv2_descriptor;
@@ -333,9 +336,30 @@ void emit_run(LLVMModuleRef mod, LLVMBuilderRef builder)
 
   LLVMSetLinkage(FN_run, LLVMInternalLinkage);
 
-  LLVMBasicBlockRef entry = LLVMAppendBasicBlock(FN_run, "");
+  LLVMBasicBlockRef entry_block = LLVMAppendBasicBlock(FN_run, "entry");
+  LLVMBasicBlockRef user_block = LLVMAppendBasicBlock(FN_run, "user");
+  LLVMBasicBlockRef exit_block = LLVMAppendBasicBlock(FN_run, "exit");
 
-  LLVMPositionBuilderAtEnd(builder, entry);
+  // work on entry block
+  LLVMPositionBuilderAtEnd(builder, entry_block);
+
+  // Allocate space on stack for function parameters
+  LLVMValueRef mem_instance = LLVMBuildAlloca(builder, LLVMPointerType(LLVMInt8Type(), 0), "-instance");
+  LLVMValueRef mem_n_samples = LLVMBuildAlloca(builder, LLVMInt32Type(), "-n_samples");
+
+  LLVMSetAlignment(mem_instance, 8);
+  LLVMSetAlignment(mem_n_samples, 4);
+
+  // Branch to user block
+  LLVMBuildBr(builder, user_block);
+
+  // work on user block, user code will be added here later
+  LLVMPositionBuilderAtEnd(builder, user_block);
+  // when finished with user code go to exit bloack
+  LLVMBuildBr(builder, exit_block);
+
+  // work on exit block
+  LLVMPositionBuilderAtEnd(builder, exit_block);
   LLVMBuildRet(builder, NULL);
 }
 
@@ -480,12 +504,12 @@ LLVMModuleRef emit_standard(struct ast *a)
   void_ptr = LLVMPointerType(LLVMInt8Type(), 0);
   float_ptr = LLVMPointerType(LLVMFloatType(), 0);
 
-  LLVMContextRef global = LLVMGetGlobalContext();
-  LLVMModuleRef mod = LLVMModuleCreateWithNameInContext(current_filename, global);
+  global_context = LLVMGetGlobalContext();
+  LLVMModuleRef mod = LLVMModuleCreateWithNameInContext(current_filename, global_context);
 
   // -------
   // This is defined by the LV2 specification
-  struct_lv2_feature = LLVMStructCreateNamed(global, "struct._LV2_Feature");
+  struct_lv2_feature = LLVMStructCreateNamed(global_context, "struct._LV2_Feature");
 
   LLVMTypeRef lv2_feature_body[] = { void_ptr, void_ptr };
   LLVMStructSetBody(struct_lv2_feature, lv2_feature_body, 2, 0);
@@ -494,14 +518,14 @@ LLVMModuleRef emit_standard(struct ast *a)
   // This is defined by the LV2 specification, we'll fill body
   // after the functions created
   // -------
-  struct_lv2_descriptor = LLVMStructCreateNamed(global, "struct._LV2_Descriptor");
+  struct_lv2_descriptor = LLVMStructCreateNamed(global_context, "struct._LV2_Descriptor");
 
   // -------
   // This is the structure that holds all the global fields, we'll fill
   // the body with the defined ports and all the global variables
   //TODO(jkokosa) scan for global variables
   // -------
-  struct_plugin = LLVMStructCreateNamed(global, "struct.Plugin");
+  struct_plugin = LLVMStructCreateNamed(global_context, "struct.Plugin");
 
   int num_ports = get_num_ports(a);
 
@@ -517,7 +541,7 @@ LLVMModuleRef emit_standard(struct ast *a)
   }
   LLVMStructSetBody(struct_plugin, plugin_body, num_ports, 0);
 
-  LLVMBuilderRef builder = LLVMCreateBuilderInContext(global);
+  LLVMBuilderRef builder = LLVMCreateBuilderInContext(global_context);
 
   emit_lv2_descriptor(mod, builder);
   emit_instantiate(mod, builder, a);

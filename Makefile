@@ -53,8 +53,14 @@ clean:
 	rm -f lex.yy.c
 	rm -f sprola.tab.*
 	rm -f sprola.output
+	rm -f verbose_dump.ll
+	rm -f test_out.wav
 
 tidy:
 	clang-tidy  \
 		-checks=clang-*,bug*,cert-*,mod*,llvm*,-llvm-header-guard,goog*,fuch*,perf*,port*,read* \
 		-header-filter=.* *.c *.h
+
+test:
+	cp -r amp.lv2 ~/.lv2/
+	lv2file -i test.wav -o test_out.wav --connect=1:inputL --connect=1:inputR http://example.org/pluginX

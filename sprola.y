@@ -71,6 +71,8 @@ void yyerror(char const*);
 
 %token T_String
 
+%type <sval> T_Type
+
 %type <a> statements statement assignment options option
 %type <a> factor term expr expra function code_block
 %type <a> functions variable_declaration variable_declarations
@@ -177,7 +179,7 @@ variable_declarations
 variable_declaration
   : T_Type T_Id T_Semicolon
     {
-      $$ = newvardecl(newsymref($2));
+      $$ = newvardecl($1, newsymref($2));
     }
   ;
 

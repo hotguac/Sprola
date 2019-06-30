@@ -113,7 +113,7 @@ struct ast *newsymref(struct symbol *s)
 }
 
 /*----------------------------------------------------------------------------*/
-struct ast *newvardecl(struct ast *s)
+struct ast *newvardecl(char *type, struct ast *s)
 {
   struct var_decl *a = (struct var_decl *) malloc(sizeof(struct var_decl));
 
@@ -124,6 +124,16 @@ struct ast *newvardecl(struct ast *s)
 
   a->nodetype = N_var_declaration;
   a->sym = s;
+
+  struct symref *ref;
+  ref = (struct symref *) s;
+
+  if (ref->sym->sym_typ != NULL) {
+    fprintf(stderr, "Error - duplicate definition %s\n", ref->sym->name);
+  }
+
+  ref->sym->sym_family = VARIABLE_NAME;
+  ref->sym->sym_typ = strdup(type);
 
   return (struct ast *)a;
 }

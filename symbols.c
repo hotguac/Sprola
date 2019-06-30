@@ -10,12 +10,12 @@ struct symbol symbol_table[NHASH];
 /*----------------------------------------------------------------------------*/
 /* hash a symbol */
 /*----------------------------------------------------------------------------*/
-static unsigned symhash(char *sym)
+static unsigned symhash(char *id)
 {
   unsigned int hash = 0;
   unsigned c;
 
-  while ((c = *sym++)) {
+  while ((c = *id++)) {
     hash = hash*9 ^ c;
   }
 
@@ -34,13 +34,16 @@ struct symbol *lookup(char* id)
       return sp;
     }
 
-    if (!sp->name) { //  This slot is available
+    if (!sp->name) { // Empty slot where it should be so add it
       sp->name = strdup(id);
-      sp->reflist = 0;
+      sp->func = NULL;
+      sp->syms = NULL;
+      sp->reflist = NULL;
+      sp->value = NULL;
       return sp;
     }
 
-    if (++sp >= symbol_table+NHASH) { // Wrap back to beginning to find empty slot
+    if (++sp >= symbol_table+NHASH) { // Wrap back to beginning to of table
       sp = symbol_table;
     }
   }

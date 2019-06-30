@@ -3,41 +3,21 @@
 #include "llvm-c/Target.h"
 
 #include "ast.h"
+#include "codegen.h"
 #include "sprola.h"
 #include "utils.h"
 
 #include <bsd/string.h>
-#include <math.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-void yyerror(char const*);
-
-LLVMModuleRef emit_standard(struct ast *a);
-void finish_descriptor(LLVMValueRef uri);
-
-LLVMTypeRef void_ptr;
-LLVMTypeRef float_ptr;
-LLVMTypeRef struct_plugin;
-LLVMTypeRef struct_lv2_descriptor;
-LLVMTypeRef struct_lv2_feature;
 LLVMValueRef uri;
-LLVMValueRef global_descriptor;
 
-// These functions are for the standard, in every LV2 plugin functions
-LLVMValueRef FN_instantiate;
-LLVMValueRef FN_connect_port;
-LLVMValueRef FN_activate;
-LLVMValueRef FN_run;
-LLVMValueRef FN_deactivate;
-LLVMValueRef FN_cleanup;
-LLVMValueRef FN_extension_data;
-LLVMValueRef FN_descriptor;
-
+/*----------------------------------------------------------------------------*/
+// audio and control ports are handled in codegen_std
 /*----------------------------------------------------------------------------*/
 void emit_option(LLVMModuleRef mod, struct ast *a)
 {
@@ -61,22 +41,15 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
 
   switch (opt->option_flag) {
     case OPT_lv2:
+      //TODO(future) - right now we only handle LV2 format, add logic to explicity chose LV2
       break;
     case OPT_audio_input:
-      // save up in's and out's, plus other global declarations
-      // into a table, set flag, and then when we hit the first function
-      // write IR later using LLVMStructType()
-      // but for now, just declare a simple variable
-      //  LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_audio_output:
-      //LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_control_in:
-      //LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_control_out:
-      //LLVMAddGlobal(mod, LLVMFloatType(), ((struct symref *) opt->target)->sym->name);
       break;
     case OPT_uri:
       len = strlen(((struct symref *) opt->target)->sym->name);
@@ -144,6 +117,9 @@ void emit_options(LLVMModuleRef mod, struct ast *a)
 }
 
 /*----------------------------------------------------------------------------*/
+// all global declarations are handled in the codegen_std and added to the
+// plugin structure saved between calls of run()
+/*----------------------------------------------------------------------------*/
 void emit_declarations(LLVMModuleRef mod, struct ast *a)
 {
   if (verbose_flag) {
@@ -153,6 +129,84 @@ void emit_declarations(LLVMModuleRef mod, struct ast *a)
   if (a == NULL) {
     return;
   }
+
+
+}
+
+//----------------------------------------------------------------------------
+// This is a user defined function
+//----------------------------------------------------------------------------
+void emit_new_function_def(LLVMModuleRef mod, struct ast *a) {
+
+}
+
+//----------------------------------------------------------------------------
+// This adds user code to the end of the standard function 'run'
+//----------------------------------------------------------------------------
+void add_to_run_function(LLVMModuleRef mod, struct ast *a) {
+  LLVMValueRef return_value;
+  LLVMValueRef func;
+  LLVMBasicBlockRef entry_block;
+  LLVMBasicBlockRef user_block;
+  LLVMBasicBlockRef exit_block;
+
+  char *name;
+
+  struct funcdef *fn = (struct funcdef *) a;
+
+  if (verbose_flag) {
+    fprintf(stderr, "adding to 'run' function definition...\n");
+  }
+
+  if (fn == NULL) {
+    return;
+  }
+
+  if (fn->nodetype != N_func_def) {
+    fprintf(stderr, "expecting function def\n");
+    return;
+  }
+
+  name = fn->name->sym->name;
+  return_value = NULL;
+
+  LLVMBuilderRef builder = LLVMCreateBuilder();
+
+  func = LLVMGetNamedFunction(mod, name);
+
+  entry_block = LLVMGetFirstBasicBlock(func);
+  if (strcmp(LLVMGetBasicBlockName(entry_block), "entry") != 0) {
+    fprintf(stderr, "Error - expected entry block\n");
+    return;
+  }
+
+  user_block = LLVMGetNextBasicBlock(entry_block);
+  if (strcmp(LLVMGetBasicBlockName(user_block), "user") != 0) {
+    fprintf(stderr, "Error - expected user block\n");
+    return;
+  }
+
+  exit_block = LLVMGetNextBasicBlock(user_block);
+  if (strcmp(LLVMGetBasicBlockName(exit_block), "exit") != 0) {
+    fprintf(stderr, "Error - expected exit block\n");
+    return;
+  }
+
+  LLVMValueRef term = LLVMGetBasicBlockTerminator(user_block);
+  if (term == NULL) {
+    fprintf(stderr, "Error - expected user block terminator\n");
+  }
+
+  LLVMPositionBuilderBefore(builder, term);
+
+  // User code goes here, in the user block before the terminator statement
+  emit_function_def(builder, a);
+}
+
+/*----------------------------------------------------------------------------*/
+void add_to_function_def(LLVMModuleRef mod, struct ast *a)
+{
+
 }
 
 /*----------------------------------------------------------------------------*/
@@ -160,10 +214,6 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
 {
   struct funcdef *fn = (struct funcdef *) a;
   LLVMValueRef return_value;
-  LLVMTypeRef ret_type;
-  LLVMValueRef func;
-  LLVMBasicBlockRef entry;
-
   char *name;
 
   if (verbose_flag) {
@@ -185,21 +235,21 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
   LLVMBuilderRef builder = LLVMCreateBuilder();
 
   if (strcmp(name, "run") == 0) {
+    add_to_run_function(mod,a);
   } else if (strcmp(name, "instantiate") == 0) {
+    add_to_function_def(mod,a);
   } else if (strcmp(name, "activate") == 0) {
+    add_to_function_def(mod,a);
   } else if (strcmp(name, "deactivate") == 0) {
+    add_to_function_def(mod,a);
   } else if (strcmp(name, "cleanup") == 0) {
+    add_to_function_def(mod,a);
   } else if (strcmp(name, "extension_data") == 0) {
+    add_to_function_def(mod,a);
   } else if (strcmp(name, "connect_port") == 0) {
+    add_to_function_def(mod,a);
   } else {
-    LLVMTypeRef param_types[] = { LLVMInt8Type(), LLVMInt32Type()};
-    ret_type = LLVMFunctionType(LLVMVoidType(), param_types, 2, 0);
-
-    func = LLVMAddFunction(mod, name, ret_type);
-    entry = LLVMAppendBasicBlock(func, "entry");
-
-    LLVMPositionBuilderAtEnd(builder, entry);
-    LLVMBuildRet(builder, return_value);
+    emit_new_function_def(mod, a);
   }
 
   LLVMDisposeBuilder(builder);
@@ -268,7 +318,7 @@ void emit_code(struct ast *a)
     return;
   }
 
-  // Do the setup that's standard
+  // Do the setup that's standard to all programs
   LLVMInitializeNativeTarget();
   LLVMModuleRef mod = emit_standard(a);
 
@@ -279,18 +329,26 @@ void emit_code(struct ast *a)
 
   finish_descriptor(uri);
 
+  if (verbose_flag) {
+    fprintf(stderr, "writing module to verbose_dump.ll\n");
+    LLVMPrintModuleToFile(mod, "verbose_dump.ll", &error);
+    LLVMDisposeMessage(error);
+  }
+
   // It's built, lets verify
   fprintf(stderr, "verifying generated bit code...\n");
   LLVMVerifyModule(mod, LLVMPrintMessageAction, &error);
   LLVMDisposeMessage(error);
-  fprintf(stderr, "verify complete\n");
+  fprintf(stderr, "verify complete, generating object library...\n");
 
 
   generate_obj_lib(mod, &names);
+  fprintf(stderr, "generating ttl files\n");
   emit_plugin_ttl(mod, a, &names);
   emit_manifest_ttl(mod, a, &names);
+  fprintf(stderr, "cleaning up...\n");
 
   LLVMDisposeModule(mod);
   LLVMShutdown();
-
+  fprintf(stderr, "finished!\n");
 }
