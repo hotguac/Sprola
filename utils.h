@@ -37,4 +37,7 @@ int build_names(char *path, struct plugin_filenames *names);
 void generate_obj_lib(LLVMModuleRef mod, struct plugin_filenames *names);
 struct port_info *get_port_info(struct ast *a);
 
+void dump_current_function(LLVMBuilderRef builder);
+
+
 #endif

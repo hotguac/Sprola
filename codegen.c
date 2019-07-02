@@ -25,7 +25,7 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
   char *literal;
 
   if (verbose_flag) {
-    fprintf(stderr, "emitting option...\n");
+    //fprintf(stderr, "emitting option...\n");
   }
 
   if (a == NULL) {
@@ -73,7 +73,7 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
 void emit_options(LLVMModuleRef mod, struct ast *a)
 {
   if (verbose_flag) {
-    fprintf(stderr, "emitting options...\n");
+    //fprintf(stderr, "emitting options...\n");
   }
 
   if (a == NULL) {
@@ -200,7 +200,13 @@ void add_to_run_function(LLVMModuleRef mod, struct ast *a) {
   LLVMPositionBuilderBefore(builder, term);
 
   // User code goes here, in the user block before the terminator statement
-  emit_function_def(builder, a);
+  if (a != NULL) {
+    // then we have user code, so remove the standard branch to exit block
+    LLVMInstructionEraseFromParent(term);
+    LLVMPositionBuilderAtEnd(builder, user_block); // needed to re-establish position
+  }
+
+  emit_x(builder, a);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -259,7 +265,7 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
 void emit_functions(LLVMModuleRef mod, struct ast *a)
 {
   if (verbose_flag) {
-    fprintf(stderr, "emitting functions...\n");
+    //fprintf(stderr, "emitting functions...\n");
   }
 
   if (a == NULL) {
@@ -337,7 +343,8 @@ void emit_code(struct ast *a)
 
   // It's built, lets verify
   fprintf(stderr, "verifying generated bit code...\n");
-  LLVMVerifyModule(mod, LLVMPrintMessageAction, &error);
+  //LLVMVerifyModule(mod, LLVMPrintMessageAction, &error);
+  LLVMVerifyModule(mod, LLVMAbortProcessAction, &error);
   LLVMDisposeMessage(error);
   fprintf(stderr, "verify complete, generating object library...\n");
 

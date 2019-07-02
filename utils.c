@@ -284,3 +284,9 @@ struct port_info *get_port_info(struct ast *a)
 
   return &info;
 }
+
+void dump_current_function(LLVMBuilderRef builder) {
+  fprintf(stderr, "------------------------------------\n");
+  fprintf(stderr, "%s\n", LLVMPrintValueToString(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder))));
+  fprintf(stderr, "------------------------------------\n");
+}

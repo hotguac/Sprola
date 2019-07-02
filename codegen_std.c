@@ -235,6 +235,8 @@ void emit_connect_port(LLVMModuleRef mod, LLVMBuilderRef builder, struct ast *a)
   LLVMSetAlignment(data, 8);
   LLVMSetAlignment(plugin, 8);
 
+  //fprintf(stderr, "Port = %s\n", LLVMPrintValueToString(port));
+
   LLVMSetAlignment(LLVMBuildStore(builder, LLVMGetParam(FN_connect_port, 0), instance), 8);
   LLVMSetAlignment(LLVMBuildStore(builder, LLVMGetParam(FN_connect_port, 1), port), 8);
   LLVMSetAlignment(LLVMBuildStore(builder, LLVMGetParam(FN_connect_port, 2), data), 8);
@@ -347,6 +349,14 @@ void emit_run(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMValueRef mem_instance = LLVMBuildAlloca(builder, LLVMPointerType(LLVMInt8Type(), 0), "-instance");
   LLVMValueRef mem_n_samples = LLVMBuildAlloca(builder, LLVMInt32Type(), "-n_samples");
 
+  LLVMBuildStore(builder, LLVMGetParam(FN_run, 0), mem_instance);
+  LLVMBuildStore(builder, LLVMGetParam(FN_run, 1), mem_n_samples);
+
+  //TODO(jkokosa) - work in process start
+  struct symbol *sym = lookup("Num_Samples");
+  sym->value = mem_n_samples;
+  //TODO(jkokosa) - work in process end
+
   LLVMSetAlignment(mem_instance, 8);
   LLVMSetAlignment(mem_n_samples, 4);
 
@@ -355,7 +365,7 @@ void emit_run(LLVMModuleRef mod, LLVMBuilderRef builder)
 
   // work on user block, user code will be added here later
   LLVMPositionBuilderAtEnd(builder, user_block);
-  // when finished with user code go to exit bloack
+  // when finished with user code go to exit block
   LLVMBuildBr(builder, exit_block);
 
   // work on exit block
