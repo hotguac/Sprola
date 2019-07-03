@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 LLVMContextRef global_context;
 
@@ -321,6 +322,50 @@ void emit_activate(LLVMModuleRef mod, LLVMBuilderRef builder)
 }
 
 /*----------------------------------------------------------------------------*/
+// loop through options to get all input and output ports
+//  and allocate space, store into them, and update
+//  symbol table to their locations
+/*----------------------------------------------------------------------------*/
+void emit_run_ports(LLVMBuilderRef builder, LLVMValueRef mem_plugin)
+{
+  LLVMValueRef mem_port = NULL;
+  LLVMValueRef tt = NULL;
+  LLVMValueRef xx = NULL;
+  LLVMValueRef yy = NULL;
+
+  struct symbol *sym;
+
+  if (info->num_ports == 0) {
+    fprintf(stderr, "Error - expected ports in info structure\n");
+  }
+
+  LLVMValueRef plug = LLVMBuildLoad(builder, mem_plugin, "");
+  LLVMSetAlignment(plug, 8);
+
+  for (int i = 0; i < info->num_ports; ++i) {
+    sym = lookup(info->port[i].symbol);
+
+    if (strcmp(info->port[i].data_type, PORT_TYPE_AUDIO) == 0) {
+      mem_port = LLVMBuildAlloca(builder, LLVMPointerType(LLVMFloatType(), 0), sym->name);
+      LLVMSetAlignment(mem_port, 8);
+      tt = LLVMBuildStructGEP2(builder, struct_plugin, plug, i, "");
+      yy = LLVMBuildLoad(builder, tt, "");
+    }
+
+    if (strcmp(info->port[i].data_type, PORT_TYPE_CONTROL) == 0) {
+      mem_port = LLVMBuildAlloca(builder, LLVMFloatType(), sym->name);
+      LLVMSetAlignment(mem_port, 4);
+      tt = LLVMBuildStructGEP2(builder, struct_plugin, plug, i, "");
+      xx = LLVMBuildLoad(builder, tt, "");
+      yy = LLVMBuildLoad(builder, xx, "");
+    }
+
+    LLVMBuildStore(builder, yy, mem_port);
+    sym->value = mem_port;
+  }
+}
+
+/*----------------------------------------------------------------------------*/
 void emit_run(LLVMModuleRef mod, LLVMBuilderRef builder)
 {
   // -------
@@ -349,16 +394,28 @@ void emit_run(LLVMModuleRef mod, LLVMBuilderRef builder)
   LLVMValueRef mem_instance = LLVMBuildAlloca(builder, LLVMPointerType(LLVMInt8Type(), 0), "-instance");
   LLVMValueRef mem_n_samples = LLVMBuildAlloca(builder, LLVMInt32Type(), "-n_samples");
 
-  LLVMBuildStore(builder, LLVMGetParam(FN_run, 0), mem_instance);
-  LLVMBuildStore(builder, LLVMGetParam(FN_run, 1), mem_n_samples);
+  // store parameter pointers
+  LLVMSetAlignment(LLVMBuildStore(builder, LLVMGetParam(FN_run, 0), mem_instance), 8);
+  LLVMSetAlignment(LLVMBuildStore(builder, LLVMGetParam(FN_run, 1), mem_n_samples), 4);
 
-  //TODO(jkokosa) - work in process start
+  // connect parameter to Sprola pre-defined variable Num_Samples
   struct symbol *sym = lookup("Num_Samples");
   sym->value = mem_n_samples;
-  //TODO(jkokosa) - work in process end
+
+  // Allocate space on stack for plugin instance structure
+  LLVMValueRef mem_plugin = LLVMBuildAlloca(builder, LLVMPointerType(struct_plugin, 0), "plugin");
+  // store the plugin values into the allocated space
+  LLVMValueRef plug_ptr = LLVMBuildLoad(builder, mem_instance, "");
+  LLVMValueRef cast = LLVMBuildBitCast(builder, plug_ptr, LLVMPointerType(struct_plugin, 0), "");
+  LLVMSetAlignment(LLVMBuildStore(builder, cast, mem_plugin), 8);
+
+  // Allocate space on stack for plugin ports
+  emit_run_ports(builder, mem_plugin);
 
   LLVMSetAlignment(mem_instance, 8);
   LLVMSetAlignment(mem_n_samples, 4);
+  LLVMSetAlignment(mem_plugin, 8);
+  LLVMSetAlignment(plug_ptr, 8);
 
   // Branch to user block
   LLVMBuildBr(builder, user_block);

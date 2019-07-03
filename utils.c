@@ -184,7 +184,7 @@ void generate_obj_lib(LLVMModuleRef mod, struct plugin_filenames *names)
 }
 
 /*----------------------------------------------------------------------------*/
-struct port_info info;
+struct port_info *info;
 
 void add_port_info(struct ast *a) {
   int found;
@@ -205,23 +205,23 @@ void add_port_info(struct ast *a) {
 
       switch (((struct setopt *)a)->option_flag) {
         case OPT_audio_input:
-          strlcpy(info.port[info.num_ports].direction, "InputPort", MAX_PORT_ATTR_SIZE);
-          strlcpy(info.port[info.num_ports].data_type, "AudioPort", MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].direction, PORT_DIRECTION_IN, MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].data_type, PORT_TYPE_AUDIO, MAX_PORT_ATTR_SIZE);
           found = 1;
           break;
         case OPT_audio_output:
-          strlcpy(info.port[info.num_ports].direction, "OutputPort", MAX_PORT_ATTR_SIZE);
-          strlcpy(info.port[info.num_ports].data_type, "AudioPort", MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].direction, PORT_DIRECTION_OUT, MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].data_type, PORT_TYPE_AUDIO, MAX_PORT_ATTR_SIZE);
           found = 1;
           break;
         case OPT_control_in:
-          strlcpy(info.port[info.num_ports].direction, "InputPort", MAX_PORT_ATTR_SIZE);
-          strlcpy(info.port[info.num_ports].data_type, "ControlPort", MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].direction, PORT_DIRECTION_IN, MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].data_type, PORT_TYPE_CONTROL, MAX_PORT_ATTR_SIZE);
           found = 1;
           break;
         case OPT_control_out:
-          strlcpy(info.port[info.num_ports].direction, "OutputPort", MAX_PORT_ATTR_SIZE);
-          strlcpy(info.port[info.num_ports].data_type, "ControlPort", MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].direction, PORT_DIRECTION_OUT, MAX_PORT_ATTR_SIZE);
+          strlcpy(info->port[info->num_ports].data_type, PORT_TYPE_CONTROL, MAX_PORT_ATTR_SIZE);
           found = 1;
           break;
         default:
@@ -237,8 +237,8 @@ void add_port_info(struct ast *a) {
         }
 
         struct symbol *sym = ((struct symref *)target)->sym;
-        strlcpy(info.port[info.num_ports].symbol, sym->name, MAX_PORT_ATTR_SIZE);
-        info.num_ports++;
+        strlcpy(info->port[info->num_ports].symbol, sym->name, MAX_PORT_ATTR_SIZE);
+        info->num_ports++;
       }
 
       break;
@@ -255,34 +255,18 @@ struct port_info *get_port_info(struct ast *a)
     exit(1);
   }
 
-  info.num_ports = 0;
+  info = (struct port_info *) malloc(sizeof(struct port_info));
+
+  info->num_ports = 0;
 
   add_port_info(a);
 
-  if (info.num_ports == 0) {
+  if (info->num_ports == 0) {
     fprintf(stderr, "Error - no options found\n");
     exit(1);
   }
 
-
-  //TODO(jkokosa) lookup in ast the control ports and audio ports here
-  /*
-  info.num_ports = 3;
-
-  strlcpy(info.port[0].data_type, "ControlPort", MAX_PORT_ATTR_SIZE);
-  strlcpy(info.port[0].direction, "InputPort", MAX_PORT_ATTR_SIZE);
-  strlcpy(info.port[0].symbol, "gain", MAX_PORT_ATTR_SIZE);
-
-  strlcpy(info.port[1].data_type, "AudioPort", MAX_PORT_ATTR_SIZE);
-  strlcpy(info.port[1].direction, "InputPort", MAX_PORT_ATTR_SIZE);
-  strlcpy(info.port[1].symbol, "Input", MAX_PORT_ATTR_SIZE);
-
-  strlcpy(info.port[2].data_type, "AudioPort", MAX_PORT_ATTR_SIZE);
-  strlcpy(info.port[2].direction, "OutputPort", MAX_PORT_ATTR_SIZE);
-  strlcpy(info.port[2].symbol, "Output", MAX_PORT_ATTR_SIZE);
-  */
-
-  return &info;
+  return info;
 }
 
 void dump_current_function(LLVMBuilderRef builder) {

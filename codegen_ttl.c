@@ -130,7 +130,7 @@ void emit_plugin_ttl(LLVMModuleRef mod, struct ast *a, struct plugin_filenames *
   fprintf(fd, "# Every port must have at least two types, one that specifies direction and one for data type.\n\n");
   fprintf(fd, "\tlv2:port [\n");
 
-  struct port_info *info = get_port_info(a);
+  //struct port_info *info = get_port_info(a);
 
   //TODO(jkokosa) handle trailing ';' and ']' correctly in ttl files
   for (int num = 0; num < info->num_ports; ++num) {
@@ -140,12 +140,12 @@ void emit_plugin_ttl(LLVMModuleRef mod, struct ast *a, struct plugin_filenames *
     fprintf(fd, "\t\tlv2:symbol \"%s\" ;\n", info->port[num].symbol);
     fprintf(fd, "\t\tlv2:name \"%s\" ;\n", info->port[num].symbol);
 
-    if ((strcmp(info->port[num].data_type, "ControlPort") == 0) &&
-        (strcmp(info->port[num].direction, "InputPort") == 0)) {
+    if ((strcmp(info->port[num].data_type, PORT_TYPE_CONTROL) == 0) &&
+        (strcmp(info->port[num].direction, PORT_DIRECTION_IN) == 0)) {
           //TODO(jkokosa) specify these values on %option lines
-          fprintf(fd, "\t\t\tlv2:default 0.0 ;\n");
-          fprintf(fd, "\t\t\tlv2:minimum -100.0 ;\n");
-          fprintf(fd, "\t\t\tlv2:maximum +100.0 ;\n");
+          fprintf(fd, "\t\t\tlv2:default 1.5 ;\n");
+          fprintf(fd, "\t\t\tlv2:minimum 0.0 ;\n");
+          fprintf(fd, "\t\t\tlv2:maximum +10.0 ;\n");
         }
 
     if ((num+1) < info->num_ports) {

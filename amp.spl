@@ -1,8 +1,13 @@
 %option Control_In gain
-%option Audio_In input
-%option Audio_Out output
+%option Audio_In inputL
+%option Audio_In inputR
+%option Audio_Out outputL
+%option Audio_Out outputR
 
-%option URI "http://example.org/plugins"
+//TODO(jkokosa) need to require at least a URI option and one input in one output audio port
+%option URI "http://example.org/pluginX"
+
+float running;
 
 void instantiate() {
 }
@@ -16,7 +21,8 @@ void run()
 	int pos;
 
 	for (pos = 0; pos < Num_Samples; pos = pos + 1) {
-		output[pos] = input[pos] * gain;
+		outputL[pos] = inputL[pos] * gain;
+		outputR[pos] = inputR[pos] * gain;
 	}
 }
 

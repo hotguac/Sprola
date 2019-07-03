@@ -9,6 +9,11 @@
 #define MAX_NUMBER_PORTS 64
 #define MAX_PORT_ATTR_SIZE 24
 
+#define PORT_TYPE_AUDIO "AudioPort"
+#define PORT_TYPE_CONTROL "ControlPort"
+#define PORT_DIRECTION_IN "InputPort"
+#define PORT_DIRECTION_OUT "OutputPort"
+
 struct plugin_filenames  {
   char plugin_name[MAX_FILENAME_SIZE];
   char bc_filename[MAX_FILENAME_SIZE];
@@ -31,6 +36,7 @@ struct port_info {
 };
 
 extern struct plugin_filenames names;
+extern struct port_info *info;
 
 int get_plugin_name(char *name, char *path);
 int build_names(char *path, struct plugin_filenames *names);

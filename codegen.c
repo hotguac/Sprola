@@ -25,7 +25,7 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
   char *literal;
 
   if (verbose_flag) {
-    //fprintf(stderr, "emitting option...\n");
+    fprintf(stderr, "emitting option...\n");
   }
 
   if (a == NULL) {
@@ -73,7 +73,7 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
 void emit_options(LLVMModuleRef mod, struct ast *a)
 {
   if (verbose_flag) {
-    //fprintf(stderr, "emitting options...\n");
+    fprintf(stderr, "emitting options...\n");
   }
 
   if (a == NULL) {
@@ -129,8 +129,6 @@ void emit_declarations(LLVMModuleRef mod, struct ast *a)
   if (a == NULL) {
     return;
   }
-
-
 }
 
 //----------------------------------------------------------------------------
@@ -326,6 +324,8 @@ void emit_code(struct ast *a)
 
   // Do the setup that's standard to all programs
   LLVMInitializeNativeTarget();
+
+  info = get_port_info(a);
   LLVMModuleRef mod = emit_standard(a);
 
   // Do the rest
