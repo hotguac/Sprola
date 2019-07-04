@@ -34,6 +34,7 @@ void yyerror(char const*);
 /* These are the possible value types returned by the lexer for tokens */
 %union {
   int ival;
+  float fval;
   char* sval;
   struct ast *a;
   struct symbol *sym;
@@ -68,6 +69,7 @@ void yyerror(char const*);
 %token T_Semicolon ";"
 
 %token <ival> T_Integer
+%token <fval> T_Float
 
 %token T_String
 
@@ -318,6 +320,10 @@ factor
   | T_Integer
     {
       $$ = newint($1);
+    }
+  | T_Float
+    {
+      $$ = newfloat($1);
     }
   | T_Id
     {

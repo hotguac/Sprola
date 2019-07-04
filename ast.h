@@ -61,6 +61,7 @@ enum return_types {
 /* nodes in the Abstract Syntax Tree */
 /* all have common initial nodetype */
 
+
 struct ast {
   enum node_types nodetype;
   struct ast *l;
@@ -142,6 +143,7 @@ struct ast *newast(enum node_types nodetype, struct ast *l, struct ast *r);
 struct ast *newasgn(struct ast *target, struct ast *value);
 struct ast *newarrayref(struct symbol *s, struct ast *v);
 struct ast *newint(int d);
+struct ast *newfloat(float f);
 struct ast *newvardecl(char *type, struct ast *s);
 struct ast *newsymref(struct symbol *s);
 struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block);
@@ -152,9 +154,6 @@ struct ast *newoption(enum option_flags flag, struct ast* sym);
 /* delete and free an AST */
 void treefree(struct ast * a);
 
-/* interface to the lexer */
-
-extern int debug;
 void dumpast(struct ast *a, int level);
 
 #endif

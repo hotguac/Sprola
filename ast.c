@@ -80,6 +80,22 @@ struct ast * newint(int d)
 }
 
 /*----------------------------------------------------------------------------*/
+struct ast * newfloat(float f)
+{
+  struct floatval *a = (struct floatval *) malloc(sizeof(struct floatval));
+
+  if (!a) {
+    yyerror("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_float;
+  a->number = f;
+
+  return (struct ast *)a;
+}
+
+/*----------------------------------------------------------------------------*/
 struct ast * newasgn(struct ast *target, struct ast *value)
 {
   struct symasgn *a = (struct symasgn *) malloc(sizeof(struct symasgn));
@@ -231,7 +247,7 @@ void treefree(struct ast *a)
 
 /*----------------------------------------------------------------------------*/
 /* debugging: dump out an AST */
-int debug = 0;
+//int debug = 0;
 void dumpast(struct ast *a, int level)
 {
   struct symasgn *node_assign;

@@ -39,4 +39,7 @@ struct ref {
 
 extern struct symbol symbol_table[NHASH];
 
+struct symbol *lookup(char* id);
+void addref(int lineno, char* filename, char* id, int flags);
+
 #endif

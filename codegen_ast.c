@@ -13,16 +13,16 @@
 void yyerror(char const*);
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) verify function
+//
 /*----------------------------------------------------------------------------*/
 void emit_var_declaration(LLVMBuilderRef builder, struct ast *a)
 {
-  if (a == NULL) {
-    return;
+  if (trace_flag) {
+    fprintf(stderr, "emit_var_declaration\n");
   }
 
-  if (verbose_flag) {
-    fprintf(stderr, "emit_var_declaration\n");
+  if (a == NULL) {
+    return;
   }
 
   struct var_decl *v = (struct var_decl *) a;
@@ -56,11 +56,15 @@ void emit_var_declaration(LLVMBuilderRef builder, struct ast *a)
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) finish function
+//
 /*----------------------------------------------------------------------------*/
 LLVMValueRef emit_evaluate_condition(LLVMBuilderRef builder, struct ast *a)
 {
   LLVMValueRef result = NULL;
+
+  if (trace_flag) {
+    fprintf(stderr,"emit_evaluate_condition\n");
+  }
 
   if (a == NULL) {
     fprintf(stderr, "Error - null ast in emit_evaluate_condition\n");
@@ -90,14 +94,16 @@ LLVMValueRef emit_evaluate_condition(LLVMBuilderRef builder, struct ast *a)
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) finish function
+//
 /*----------------------------------------------------------------------------*/
 LLVMValueRef emit_array_ref(LLVMBuilderRef builder, struct ast *a)
 {
   struct arrayref *aref;
   struct symbol *sym;
 
-  fprintf(stderr, "In emit_array_ref\n");
+  if (trace_flag) {
+    fprintf(stderr, "In emit_array_ref\n");
+  }
 
   if (a == NULL) {
     fprintf(stderr, "Error - null ast in emit_array_ref\n");
@@ -120,22 +126,95 @@ LLVMValueRef emit_array_ref(LLVMBuilderRef builder, struct ast *a)
   LLVMValueRef indexes[] = { ind };
   LLVMValueRef y = LLVMBuildInBoundsGEP(builder, x, indexes, 1, "");
   return y;
-  //return LLVMBuildLoad(builder, y, "");
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) finish function
+//
+/*----------------------------------------------------------------------------*/
+LLVMValueRef emit_basic_bin_operator(LLVMBuilderRef builder, struct ast *a)
+{
+  LLVMValueRef left;
+  LLVMValueRef right;
+
+  if (trace_flag) {
+    fprintf(stderr, "emit_basic_bin_operator\n");
+  }
+
+  if (a == NULL) {
+    fprintf(stderr, "Error - null ast in emit_basic_bin_operator\n");
+    exit(1);
+  }
+
+  left = emit_evaluate_expression(builder, a->l);
+  right = emit_evaluate_expression(builder, a->r);
+
+  LLVMTypeKind tk_l = LLVMGetTypeKind(LLVMTypeOf(left));
+  LLVMTypeKind tk_r = LLVMGetTypeKind(LLVMTypeOf(right));
+
+  //TODO(jkokosa) assuming on int and float are valid types
+  if (tk_l != tk_r) {
+    if (tk_l == LLVMIntegerTypeKind) {
+      left = LLVMBuildSIToFP(builder, left, LLVMFloatType(), "");
+      tk_l = LLVMGetTypeKind(LLVMTypeOf(left));
+    }
+    if (tk_r == LLVMIntegerTypeKind) {
+      right = LLVMBuildSIToFP(builder, right, LLVMFloatType(), "");
+    }
+  }
+
+  switch (a->nodetype) {
+    case N_add:
+      if (tk_l == LLVMIntegerTypeKind) {
+        return LLVMBuildAdd(builder, left, right, "sum");
+      } else {
+        return LLVMBuildFAdd(builder, left, right, "sum");
+      }
+      break;
+    case N_subtract:
+      if (tk_l == LLVMIntegerTypeKind) {
+        return LLVMBuildSub(builder, left, right, "diff");
+      } else {
+        return LLVMBuildFSub(builder, left, right, "diff");
+      }
+      break;
+    case N_multiply:
+      if (tk_l == LLVMIntegerTypeKind) {
+        return LLVMBuildMul(builder, left, right, "product");
+      } else {
+        return LLVMBuildFMul(builder, left, right, "product");
+      }
+      break;
+    case N_divide:
+      if (tk_l == LLVMIntegerTypeKind) {
+        //return LLVMBuildDiv(builder, left, right, "quotient"); // ???? how to div int's
+        break;
+      } else {
+        return LLVMBuildFDiv(builder, left, right, "quotient");
+      }
+      break;
+    default:
+      fprintf(stderr, "****in process - emit_basic_bin_operator - unexpected nodetype %d\n", a->nodetype);
+  }
+
+  // This is a dummy statement until function is ready
+  return LLVMConstInt(LLVMInt32Type(), 0, 0);
+}
+
+/*----------------------------------------------------------------------------*/
+//
 /*----------------------------------------------------------------------------*/
 LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
 {
   struct intval *i;
+  struct floatval *f;
   struct symref *ref;
   struct symbol *sym;
 
-  LLVMValueRef left;
-  LLVMValueRef right;
-
   LLVMValueRef temp;
+
+  if (trace_flag) {
+    fprintf(stderr, "emit_evaluate_expression\n");
+  }
 
   if (a == NULL) {
     fprintf(stderr, "Error - null ast in emit_evaluate_expression\n");
@@ -147,11 +226,12 @@ LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
       return emit_evaluate_condition(builder,a);
       break;
     case N_integer:
-      i = (struct intval *)a;
+      i = (struct intval *) a;
       return LLVMConstInt(LLVMInt32Type(), i->number, 0);
       break;
     case N_float:
-      fprintf(stderr, "****in process - emit_evaluate_expression - work on next - N_float\n");
+      f = (struct floatval *) a;
+      return LLVMConstReal(LLVMFloatType(), f->number);
       break;
     case N_symbol_ref:
       ref = (struct symref *) a;
@@ -163,24 +243,19 @@ LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
       return LLVMBuildLoad(builder, temp, "");
       break;
     case N_add:
-      left = emit_evaluate_expression(builder, a->l);
-      right = emit_evaluate_expression(builder, a->r);
-      return LLVMBuildAdd(builder, left, right, "sum");
+      return emit_basic_bin_operator(builder, a);
       break;
     case N_subtract:
-      fprintf(stderr, "****in process - emit_evaluate_expression - work on next - N_subtract\n");
+      return emit_basic_bin_operator(builder, a);
       break;
     case N_multiply:
-      left = emit_evaluate_expression(builder, a->l);
-      right = emit_evaluate_expression(builder, a->r);
-      temp = LLVMBuildFMul(builder, left, right, "product");
-      return temp;
+      return emit_basic_bin_operator(builder, a);
       break;
     case N_divide:
-      fprintf(stderr, "****in process - emit_evaluate_expression - work on next - N_divide\n");
+      return emit_basic_bin_operator(builder, a);
       break;
     case N_negate:
-      fprintf(stderr, "****in process - emit_evaluate_expression - work on next - N_negate\n");
+      fprintf(stderr, "emit_evaluate_expression - need N_negate\n");
       break;
     default:
       fprintf(stderr, "****in process - emit_evaluate_expression - unexpected nodetype %d\n", a->nodetype);
@@ -191,13 +266,17 @@ LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) finish function
+//
 /*----------------------------------------------------------------------------*/
 LLVMValueRef get_target(LLVMBuilderRef builder, struct ast *a)
 {
   struct symref *ref;
   struct symbol *sym;
   LLVMValueRef temp;
+
+  if (trace_flag) {
+    fprintf(stderr, "get_target\n");
+  }
 
   if (a == NULL) {
     fprintf(stderr, "Error - get_target - NULL\n");
@@ -221,10 +300,14 @@ LLVMValueRef get_target(LLVMBuilderRef builder, struct ast *a)
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) verify function
+//
 /*----------------------------------------------------------------------------*/
 void emit_assignment( LLVMBuilderRef builder, struct ast *a)
 {
+  if (trace_flag) {
+    fprintf(stderr, "emit_assignment\n");
+  }
+
   if (a == NULL) {
     fprintf(stderr, "Error - emit_assignment - NULL\n");
     exit(1);
@@ -254,19 +337,22 @@ void emit_assignment( LLVMBuilderRef builder, struct ast *a)
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) finish function
+//
 /*----------------------------------------------------------------------------*/
 void emit_code_block( LLVMBuilderRef builder, LLVMBasicBlockRef bb,
                       struct ast *a, LLVMBasicBlockRef next)
 {
-  //fprintf(stderr, "in process - emit_code_block\n");
+  if (trace_flag) {
+    fprintf(stderr, "in process - emit_code_block\n");
+  }
+
   LLVMPositionBuilderAtEnd(builder, bb);
   emit_x(builder, a);
   LLVMBuildBr(builder, next);
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) verify function
+//
 /*----------------------------------------------------------------------------*/
 void emit_condition_block(LLVMBuilderRef builder,
                           LLVMBasicBlockRef bb,
@@ -274,17 +360,24 @@ void emit_condition_block(LLVMBuilderRef builder,
                           LLVMBasicBlockRef code_block,
                           LLVMBasicBlockRef continue_block)
 {
-  //fprintf(stderr, "in process - *** emit_condition_block\n");
+  if (trace_flag) {
+    fprintf(stderr, "emit_condition_block\n");
+  }
+
   LLVMPositionBuilderAtEnd(builder, bb);
   LLVMValueRef result = emit_evaluate_expression(builder, a);
   LLVMBuildCondBr(builder, result, code_block, continue_block);
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) finish function
+//
 /*----------------------------------------------------------------------------*/
 LLVMBasicBlockRef emit_for_loop(LLVMBuilderRef builder, struct ast *a)
 {
+  if (trace_flag) {
+    fprintf(stderr, "emit_for_loop\n");
+  }
+
   if (a == NULL) {
     fprintf(stderr, "Error - emit_for_loop - NULL\n");
     exit(1);
@@ -325,7 +418,7 @@ LLVMBasicBlockRef emit_for_loop(LLVMBuilderRef builder, struct ast *a)
 }
 
 /*----------------------------------------------------------------------------*/
-//TODO(jkokosa) finish function
+//
 /*----------------------------------------------------------------------------*/
 void emit_x(LLVMBuilderRef builder, struct ast *a)
 {
@@ -335,67 +428,65 @@ void emit_x(LLVMBuilderRef builder, struct ast *a)
 
   switch (a->nodetype) {
     case N_func_def:
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_func_def\n");
+      }
       emit_x(builder, ((struct funcdef *) a)->body);
+      break;
     case N_var_declarations:
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_var_declarations\n");
+      }
       emit_x(builder, a->l);
       emit_x(builder, a->r);
       break;
     case N_var_declaration:
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_var_declaration\n");
+      }
       emit_var_declaration(builder, a);
       break;
     case N_assignment:
-      //fprintf(stderr, "emit_x - in process - N_assignment\n");
       emit_assignment(builder, a);
       break;
-    case N_condition:
-      fprintf(stderr, "emit_x - work on next - N_condition\n");
-      break;
-    case N_integer:
-      fprintf(stderr, "emit_x - work on next - N_integer\n");
-      break;
-    case N_float:
-      fprintf(stderr, "emit_x - work on next - N_float\n");
-      break;
-    case N_symbol_ref:
-      fprintf(stderr, "emit_x - work on next - N_symbol_ref\n");
-      break;
-    case N_array_ref:
-      fprintf(stderr, "emit_x - work on next - N_array_ref\n");
-      break;
     case N_statement_list:
-      fprintf(stderr, "emit_x - inprocess - N_statement_list\n");
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_statement_list\n");
+      }
       emit_x(builder, a->l);
       emit_x(builder, a->r);
       break;
     case N_for_loop:
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_for_loop\n");
+      }
       emit_for_loop(builder, a);
       break;
     case N_while_loop:
-      fprintf(stderr, "emit_x - work on next - N_while_loop\n");
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_while_loop - ** empty **\n");
+        dumpast(a, 4);
+      }
       break;
     case N_until_loop:
-      fprintf(stderr, "emit_x - work on next - N_until_loop\n");
-      break;
-    case N_add:
-      fprintf(stderr, "emit_x - work on next - N_add\n");
-      break;
-    case N_subtract:
-      fprintf(stderr, "emit_x - work on next - N_subtract\n");
-      break;
-    case N_multiply:
-      fprintf(stderr, "emit_x - work on next - N_multiply\n");
-      break;
-    case N_divide:
-      fprintf(stderr, "emit_x - work on next - N_divide\n");
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_while_loop - ** empty **\n");
+        dumpast(a, 4);
+      }
       break;
     case N_scope:
+      if (trace_flag) {
+        fprintf(stderr, "emit_x N_scope\n");
+      }
       emit_x(builder, a->l);
       emit_x(builder, a->r);
       break;
-    case N_negate:
-      fprintf(stderr, "emit_x - work on next - N_negate\n");
-      break;
     default:
+      if (trace_flag) {
+        fprintf(stderr, "emit_x default**********\n");
+        dumpast(a, 4);
+      }
       fprintf(stderr, "emit_x - unexpected nodetype %d\n", a->nodetype);
+      break;
   }
 }

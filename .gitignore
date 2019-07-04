@@ -1,5 +1,6 @@
-# Test wave files
-*.wav
+# Misc test and notes files
+exclude/*
+*.lv2/*
 
 # Flex generated output
 lex.yy.c
@@ -11,11 +12,9 @@ sprola.output
 # Sprola executable
 sprola
 
-# Sprola default output
-default_output.ll
-
-# Example lv2 projects in C
-amp.c
+# IR code generated and examples
+*.ll
+*.bc
 
 # LV2 examples
 lv2/*

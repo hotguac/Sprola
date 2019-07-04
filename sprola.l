@@ -19,6 +19,8 @@ void yyerror(char const*);
 
 %}
 
+digit [0-9]
+
 %%
 
 [ \t\n]   ;
@@ -52,7 +54,10 @@ void yyerror(char const*);
 \"[^"\\]*\" { addref(yylineno, current_filename, yytext, 0);
               yylval.sym = lookup(yytext); return T_String; }
 
-[0-9]+    { yylval.ival = atoi(yytext); return T_Integer; }
+
+{digit}+    { yylval.ival = atoi(yytext); return T_Integer; }
+({digit}+[.]{digit}*)|({digit}*[.]{digit}+) { yylval.fval = atof(yytext); return T_Float; }
+
 
 "//".*    { /* ignore comments for now */ }
 

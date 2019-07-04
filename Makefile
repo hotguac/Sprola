@@ -10,39 +10,39 @@ sprola: sprola.tab.o lex.yy.o symbols.o ast.o \
 		 /usr/local/lib/libLLVM.so \
 		 /usr/local/lib/libc++.so
 
-sprola.tab.o: sprola.tab.c
+sprola.tab.o: sprola.tab.c  *.h
 	clang -g -O0 -c -o sprola.tab.o sprola.tab.c
 
 sprola.tab.c: sprola.y
 	bison -d --report=all sprola.y
 #	bison -d -v --report=all sprola.y
 
-lex.yy.o: lex.yy.c
+lex.yy.o: lex.yy.c *.h
 	clang -g -O0 -c -o lex.yy.o lex.yy.c
 
-lex.yy.c: sprola.l sprola.y sprola.h
+lex.yy.c: sprola.l sprola.y *.h
 #	flex -d -T sprola.l or flex -T sprola.l
 	flex sprola.l
 
-symbols.o: sprola.h symbols.c symbols.h
+symbols.o: symbols.c *.h
 	clang -Wall -g -O0 -c -o symbols.o symbols.c
 
-ast.o: ast.c ast.h
+ast.o: ast.c  *.h
 	clang -Wall -g -O0 -c -o ast.o ast.c
 
-codegen.o: codegen.c
+codegen.o: codegen.c *.h
 	clang $(cflags) -o codegen.o codegen.c
 
-codegen_std.o: codegen_std.c
+codegen_std.o: codegen_std.c *.h
 	clang $(cflags) -o codegen_std.o codegen_std.c
 
-codegen_ast.o: codegen_ast.c
+codegen_ast.o: codegen_ast.c *.h
 	clang $(cflags) -o codegen_ast.o codegen_ast.c
 
-codegen_ttl.o: codegen_ttl.c
+codegen_ttl.o: codegen_ttl.c *.h
 	clang $(cflags) -o codegen_ttl.o codegen_ttl.c
 
-utils.o: utils.c utils.h
+utils.o: utils.c *.h
 	clang $(cflags) -o utils.o utils.c
 
 clean:
@@ -63,4 +63,4 @@ tidy:
 
 test:
 	cp -r amp.lv2 ~/.lv2/
-	lv2file -i test.wav -o test_out.wav --connect=1:inputL --connect=1:inputR http://example.org/pluginX
+	lv2file -i exclude/test.wav -o exclude/test_out.wav --connect=1:inputL --connect=1:inputR http://example.org/sprola
