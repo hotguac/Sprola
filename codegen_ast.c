@@ -18,7 +18,8 @@ void yyerror(char const*);
 void emit_var_declaration(LLVMBuilderRef builder, struct ast *a)
 {
   if (trace_flag) {
-    fprintf(stderr, "emit_var_declaration\n");
+    fprintf(trace_file, "emit_var_declaration\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -63,7 +64,8 @@ LLVMValueRef emit_evaluate_condition(LLVMBuilderRef builder, struct ast *a)
   LLVMValueRef result = NULL;
 
   if (trace_flag) {
-    fprintf(stderr,"emit_evaluate_condition\n");
+    fprintf(trace_file,"emit_evaluate_condition\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -73,17 +75,46 @@ LLVMValueRef emit_evaluate_condition(LLVMBuilderRef builder, struct ast *a)
   struct condition *c = (struct condition *) a;
 
   LLVMValueRef left = emit_evaluate_expression(builder, c->left);
+  //fprintf(stderr, "eec left = %s\n", LLVMPrintValueToString(left));
+
   LLVMValueRef right = emit_evaluate_expression(builder, c->right);
+  //fprintf(stderr, "eec right = %s\n", LLVMPrintValueToString(right));
+
+  LLVMTypeKind tk_l = LLVMGetTypeKind(LLVMTypeOf(left));
+  LLVMTypeKind tk_r = LLVMGetTypeKind(LLVMTypeOf(right));
+
+  //TODO(jkokosa) assuming only int and float are valid types
+  if (tk_l != tk_r) {
+    if (tk_l == LLVMIntegerTypeKind) {
+      left = LLVMBuildSIToFP(builder, left, LLVMFloatType(), "");
+      tk_l = LLVMGetTypeKind(LLVMTypeOf(left));
+    }
+    if (tk_r == LLVMIntegerTypeKind) {
+      right = LLVMBuildSIToFP(builder, right, LLVMFloatType(), "");
+    }
+  }
 
   switch (c->operator) {
     case L_greater_than:
-      result = LLVMBuildICmp(builder, LLVMIntSGT, left, right, "");
+      if (tk_l == LLVMIntegerTypeKind) {
+        result = LLVMBuildICmp(builder, LLVMIntSGT, left, right, "");
+      } else {
+        result = LLVMBuildFCmp(builder, LLVMRealUGT, left, right, "");
+      }
       break;
     case L_less_than:
-      result = LLVMBuildICmp(builder, LLVMIntSLT, left, right, "");
+      if (tk_l == LLVMIntegerTypeKind) {
+        result = LLVMBuildICmp(builder, LLVMIntSLT, left, right, "");
+      } else {
+        result = LLVMBuildFCmp(builder, LLVMRealULT, left, right, "");
+      }
       break;
     case L_equals:
-      result = LLVMBuildICmp(builder, LLVMIntEQ, left, right, "");
+      if (tk_l == LLVMIntegerTypeKind) {
+        result = LLVMBuildICmp(builder, LLVMIntEQ, left, right, "");
+      } else {
+        result = LLVMBuildFCmp(builder, LLVMRealUEQ, left, right, "");
+      }
       break;
     default:
       fprintf(stderr, "Error - emit_evaluate_condition unknown condition %d\n", c->operator);
@@ -102,7 +133,8 @@ LLVMValueRef emit_array_ref(LLVMBuilderRef builder, struct ast *a)
   struct symbol *sym;
 
   if (trace_flag) {
-    fprintf(stderr, "In emit_array_ref\n");
+    fprintf(trace_file, "In emit_array_ref\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -137,7 +169,8 @@ LLVMValueRef emit_basic_bin_operator(LLVMBuilderRef builder, struct ast *a)
   LLVMValueRef right;
 
   if (trace_flag) {
-    fprintf(stderr, "emit_basic_bin_operator\n");
+    fprintf(trace_file, "emit_basic_bin_operator\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -203,6 +236,43 @@ LLVMValueRef emit_basic_bin_operator(LLVMBuilderRef builder, struct ast *a)
 /*----------------------------------------------------------------------------*/
 //
 /*----------------------------------------------------------------------------*/
+LLVMValueRef emit_basic_unary_operator(LLVMBuilderRef builder, struct ast *a)
+{
+  LLVMValueRef left;
+
+  if (trace_flag) {
+    fprintf(trace_file, "emit_basic_unary_operator\n");
+    fflush(trace_file);
+  }
+
+  if (a == NULL) {
+    fprintf(stderr, "Error - null ast in emit_basic_unary_operator\n");
+    exit(1);
+  }
+
+  left = emit_evaluate_expression(builder, a->l);
+
+  LLVMTypeKind tk_l = LLVMGetTypeKind(LLVMTypeOf(left));
+
+  switch (a->nodetype) {
+    case N_negate:
+      if (tk_l == LLVMIntegerTypeKind) {
+        return LLVMBuildNeg(builder, left, "neg");
+      } else {
+        return LLVMBuildFNeg(builder, left, "neg");
+      }
+      break;
+    default:
+      fprintf(stderr, "****in process - emit_basic_unary_operator - unexpected nodetype %d\n", a->nodetype);
+  }
+
+  // This is a dummy statement until function is ready
+  return LLVMConstInt(LLVMInt32Type(), 0, 0);
+}
+
+/*----------------------------------------------------------------------------*/
+//
+/*----------------------------------------------------------------------------*/
 LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
 {
   struct intval *i;
@@ -213,7 +283,10 @@ LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
   LLVMValueRef temp;
 
   if (trace_flag) {
-    fprintf(stderr, "emit_evaluate_expression\n");
+    fprintf(trace_file, "emit_evaluate_expression\n");
+    fflush(trace_file);
+    dumpast(a, 0);
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -236,6 +309,11 @@ LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
     case N_symbol_ref:
       ref = (struct symref *) a;
       sym = ref->sym;
+      if (sym->value == NULL) {
+        fprintf(stderr, "Error - undefined symbol %s\n", sym->name);
+        dumpast(a, 0);
+        exit(1);
+      }
       return LLVMBuildLoad(builder, sym->value, "");
       break;
     case N_array_ref:
@@ -255,7 +333,11 @@ LLVMValueRef emit_evaluate_expression(LLVMBuilderRef builder, struct ast *a)
       return emit_basic_bin_operator(builder, a);
       break;
     case N_negate:
-      fprintf(stderr, "emit_evaluate_expression - need N_negate\n");
+      if (trace_flag) {
+        fprintf(trace_file, "emit_evaluate_expression - in process N_negate\n");
+      }
+
+      return emit_basic_unary_operator(builder, a);
       break;
     default:
       fprintf(stderr, "****in process - emit_evaluate_expression - unexpected nodetype %d\n", a->nodetype);
@@ -275,7 +357,8 @@ LLVMValueRef get_target(LLVMBuilderRef builder, struct ast *a)
   LLVMValueRef temp;
 
   if (trace_flag) {
-    fprintf(stderr, "get_target\n");
+    fprintf(trace_file, "get_target\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -304,9 +387,9 @@ LLVMValueRef get_target(LLVMBuilderRef builder, struct ast *a)
 /*----------------------------------------------------------------------------*/
 void emit_assignment( LLVMBuilderRef builder, struct ast *a)
 {
-  if (trace_flag) {
-    fprintf(stderr, "emit_assignment\n");
-  }
+  LLVMValueRef temp_value;
+
+  trace("emit_assignment\n");
 
   if (a == NULL) {
     fprintf(stderr, "Error - emit_assignment - NULL\n");
@@ -333,7 +416,42 @@ void emit_assignment( LLVMBuilderRef builder, struct ast *a)
     return; // don't know what to do yet
   }
 
-  LLVMBuildStore(builder, value, target);
+  LLVMTypeKind tk_t = LLVMGetTypeKind(LLVMTypeOf(target));
+  LLVMTypeKind tk_v = LLVMGetTypeKind(LLVMTypeOf(value));
+
+  if (trace_flag) {
+    fprintf(trace_file, "tk_t = %d\n", tk_t);
+    fprintf(trace_file, "tk_v = %d\n", tk_v);
+
+    fprintf(trace_file, "target = '%s'\n", LLVMPrintValueToString(target));
+    fprintf(trace_file, "value = '%s'\n", LLVMPrintValueToString(value));
+  }
+
+  if (tk_t == LLVMPointerTypeKind) {
+    tk_t = LLVMGetTypeKind(LLVMGetElementType(LLVMTypeOf(target)));
+    fprintf(trace_file, "tk_t = %d\n", tk_t);
+  }
+
+  //TODO(jkokosa) assuming on int and float are only valid types
+  if (tk_t != tk_v) {
+    if (tk_t == LLVMIntegerTypeKind) {
+      temp_value = LLVMBuildFPToSI(builder, value, LLVMInt32Type(), "");
+      trace("FPToSI\n");
+    } else {
+      trace("before SIToFP\n");
+      temp_value = LLVMBuildSIToFP(builder, value, LLVMFloatType(), "");
+      trace("SIToFP\n");
+    }
+  } else {
+    temp_value = value;
+  }
+
+  trace("before build store assignment\n");
+  fprintf(trace_file, "temp_value = '%s'\n", LLVMPrintValueToString(temp_value));
+  LLVMBuildStore(builder, temp_value, target);
+  //dump_current_function(builder);
+  trace("after build store assignment\n");
+  //dump_current_function(builder);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -342,9 +460,8 @@ void emit_assignment( LLVMBuilderRef builder, struct ast *a)
 void emit_code_block( LLVMBuilderRef builder, LLVMBasicBlockRef bb,
                       struct ast *a, LLVMBasicBlockRef next)
 {
-  if (trace_flag) {
-    fprintf(stderr, "in process - emit_code_block\n");
-  }
+  trace("in process - emit_code_block\n");
+  dumpast(a, 0);
 
   LLVMPositionBuilderAtEnd(builder, bb);
   emit_x(builder, a);
@@ -360,9 +477,7 @@ void emit_condition_block(LLVMBuilderRef builder,
                           LLVMBasicBlockRef code_block,
                           LLVMBasicBlockRef continue_block)
 {
-  if (trace_flag) {
-    fprintf(stderr, "emit_condition_block\n");
-  }
+  trace("emit_condition_block\n");
 
   LLVMPositionBuilderAtEnd(builder, bb);
   LLVMValueRef result = emit_evaluate_expression(builder, a);
@@ -372,11 +487,59 @@ void emit_condition_block(LLVMBuilderRef builder,
 /*----------------------------------------------------------------------------*/
 //
 /*----------------------------------------------------------------------------*/
+LLVMBasicBlockRef emit_if_else(LLVMBuilderRef builder, struct ast *a)
+{
+  trace("emit_if_else\n");
+
+  if (a == NULL) {
+    fprintf(stderr, "Error - emit_for_loop - NULL\n");
+    exit(1);
+  }
+
+  if (a->nodetype != N_if_then_else) {
+    fprintf(stderr, "Error - emit_if_else - expected if, found %d\n", a->nodetype);
+    exit(1);
+  }
+
+  //dump_current_function(builder);
+
+  struct ifthenelse *stmt = (struct ifthenelse *) a;
+
+  LLVMValueRef fn = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+  //LLVMBasicBlockRef last = LLVMGetLastBasicBlock(fn);
+
+  //fprintf(stderr, "eie last = %s\n", LLVMPrintValueToString(LLVMBasicBlockAsValue(last)));
+
+  LLVMBasicBlockRef cond_block = LLVMAppendBasicBlock(fn, "cond_block");
+  LLVMBasicBlockRef then_block = LLVMAppendBasicBlock(fn, "then_block");
+  LLVMBasicBlockRef else_block = LLVMAppendBasicBlock(fn, "else_block");
+  LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(fn, "continue");
+
+  LLVMBuildBr(builder, cond_block);
+
+  emit_condition_block(builder, cond_block, stmt->condition, then_block, else_block);
+  emit_code_block(builder, then_block, stmt->then_block, continue_block);
+  emit_code_block(builder, else_block, stmt->else_block, continue_block);
+
+  LLVMMoveBasicBlockAfter(then_block, cond_block);
+  LLVMMoveBasicBlockAfter(else_block, then_block);
+  LLVMMoveBasicBlockAfter(continue_block, else_block);
+  //LLVMMoveBasicBlockAfter(last, continue_block);
+
+  //dump_current_function(builder);
+
+  LLVMPositionBuilderAtEnd(builder, continue_block);
+  //LLVMBuildBr(builder, last);
+
+  return continue_block;
+}
+
+/*----------------------------------------------------------------------------*/
+//
+/*----------------------------------------------------------------------------*/
 LLVMBasicBlockRef emit_for_loop(LLVMBuilderRef builder, struct ast *a)
 {
-  if (trace_flag) {
-    fprintf(stderr, "emit_for_loop\n");
-  }
+  trace("emit_for_loop\n");
 
   if (a == NULL) {
     fprintf(stderr, "Error - emit_for_loop - NULL\n");
@@ -393,7 +556,7 @@ LLVMBasicBlockRef emit_for_loop(LLVMBuilderRef builder, struct ast *a)
   emit_assignment(builder, fl->initialize);
 
   LLVMValueRef fn = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-  LLVMBasicBlockRef last = LLVMGetLastBasicBlock(fn);
+  LLVMBasicBlockRef exit_block = LLVMGetLastBasicBlock(fn);
 
   LLVMBasicBlockRef code_block = LLVMAppendBasicBlock(fn, "code_block");
   LLVMBasicBlockRef cond_block = LLVMAppendBasicBlock(fn, "cond_block");
@@ -408,11 +571,14 @@ LLVMBasicBlockRef emit_for_loop(LLVMBuilderRef builder, struct ast *a)
 
   LLVMMoveBasicBlockAfter(code_block, cond_block);
   LLVMMoveBasicBlockAfter(post_block, code_block);
-  LLVMMoveBasicBlockAfter(continue_block, post_block);
-  LLVMMoveBasicBlockAfter(last, continue_block);
+
+  LLVMBasicBlockRef last_block = LLVMGetLastBasicBlock(fn);
+
+  LLVMMoveBasicBlockAfter(continue_block, last_block);
+  LLVMMoveBasicBlockAfter(exit_block, continue_block);
 
   LLVMPositionBuilderAtEnd(builder, continue_block);
-  LLVMBuildBr(builder, last);
+  LLVMBuildBr(builder, exit_block);
 
   return continue_block;
 }
@@ -428,65 +594,50 @@ void emit_x(LLVMBuilderRef builder, struct ast *a)
 
   switch (a->nodetype) {
     case N_func_def:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_func_def\n");
-      }
+      trace("emit_x N_func_def\n");
       emit_x(builder, ((struct funcdef *) a)->body);
       break;
     case N_var_declarations:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_var_declarations\n");
-      }
+      trace("emit_x N_var_declarations\n");
       emit_x(builder, a->l);
       emit_x(builder, a->r);
       break;
     case N_var_declaration:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_var_declaration\n");
-      }
+      trace("emit_x N_var_declaration\n");
       emit_var_declaration(builder, a);
       break;
     case N_assignment:
       emit_assignment(builder, a);
       break;
     case N_statement_list:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_statement_list\n");
-      }
+      trace("emit_x N_statement_list\n");
       emit_x(builder, a->l);
       emit_x(builder, a->r);
       break;
+    case N_if_then_else:
+      trace("emit_x N_if_then_else\n");
+      emit_if_else(builder, a);
+      break;
     case N_for_loop:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_for_loop\n");
-      }
+      trace("emit_x N_for_loop\n");
       emit_for_loop(builder, a);
       break;
     case N_while_loop:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_while_loop - ** empty **\n");
-        dumpast(a, 4);
-      }
+      trace("emit_x N_while_loop - ** empty **\n");
+      dumpast(a, 4);
       break;
     case N_until_loop:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_while_loop - ** empty **\n");
-        dumpast(a, 4);
-      }
+      trace("emit_x N_while_loop - ** empty **\n");
+      dumpast(a, 4);
       break;
     case N_scope:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x N_scope\n");
-      }
+      trace("emit_x N_scope\n");
       emit_x(builder, a->l);
       emit_x(builder, a->r);
       break;
     default:
-      if (trace_flag) {
-        fprintf(stderr, "emit_x default**********\n");
-        dumpast(a, 4);
-      }
-      fprintf(stderr, "emit_x - unexpected nodetype %d\n", a->nodetype);
+      trace("emit_x default**********\n");
+      dumpast(a, 4);
       break;
   }
 }

@@ -22,12 +22,16 @@ struct plugin_filenames  {
   char manifest_ttlname[MAX_FILENAME_SIZE];
   char plugin_ttlname[MAX_FILENAME_SIZE];
   char so_filename[MAX_FILENAME_SIZE];
+  char trace_filename[MAX_FILENAME_SIZE];
 };
 
 struct a_port {
   char direction[MAX_PORT_ATTR_SIZE];
   char data_type[MAX_PORT_ATTR_SIZE];
   char symbol[MAX_PORT_ATTR_SIZE];
+  float def;
+  float min;
+  float max;
 };
 
 struct port_info {
@@ -44,6 +48,7 @@ void generate_obj_lib(LLVMModuleRef mod, struct plugin_filenames *names);
 struct port_info *get_port_info(struct ast *a);
 
 void dump_current_function(LLVMBuilderRef builder);
+void trace(char *message);
 
 
 #endif

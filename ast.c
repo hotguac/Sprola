@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "codegen.h"
 #include "sprola.h"
 
 void yyerror(char const*);
@@ -47,7 +48,7 @@ struct ast * newast(enum node_types nodetype, struct ast *l, struct ast *r)
 }
 
 /*----------------------------------------------------------------------------*/
-struct ast *newoption(enum option_flags flag, struct ast* sym)
+struct ast *newoption(enum option_flags flag, struct ast* sym, struct ast* value1, struct ast* value2, struct ast* value3)
 {
   struct setopt *a = (struct setopt *) malloc(sizeof(struct setopt));
 
@@ -59,6 +60,9 @@ struct ast *newoption(enum option_flags flag, struct ast* sym)
   a->nodetype = N_option;
   a->option_flag = flag;
   a->target = sym;
+  a->value1 = value1;
+  a->value2 = value2;
+  a->value3 = value3;
 
   return (struct ast *)a;
 }
@@ -208,6 +212,42 @@ struct ast *newlessthan(struct ast *left, struct ast *right)
 }
 
 /*----------------------------------------------------------------------------*/
+struct ast *newgreaterthan(struct ast *left, struct ast *right)
+{
+  struct condition *a = (struct condition *) malloc(sizeof(struct condition));
+
+  if (!a) {
+    yyerror("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_condition;
+  a->operator = L_greater_than;
+  a->left = left;
+  a->right = right;
+
+  return (struct ast *)a;
+}
+
+/*----------------------------------------------------------------------------*/
+struct ast *newequals(struct ast *left, struct ast *right)
+{
+  struct condition *a = (struct condition *) malloc(sizeof(struct condition));
+
+  if (!a) {
+    yyerror("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_condition;
+  a->operator = L_equals;
+  a->left = left;
+  a->right = right;
+
+  return (struct ast *)a;
+}
+
+/*----------------------------------------------------------------------------*/
 struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block)
 {
   struct forloop *a = (struct forloop *) malloc(sizeof(struct forloop));
@@ -225,6 +265,24 @@ struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, str
 
   return (struct ast *)a;
 }
+
+struct ast *newifelse(struct ast *cond, struct ast *then_block, struct ast *else_block)
+{
+  struct ifthenelse *a = (struct ifthenelse *) malloc(sizeof(struct ifthenelse));
+
+  if (!a) {
+    yyerror("out of space");
+    exit(0);
+  }
+
+  a->nodetype = N_if_then_else;
+  a->condition = cond;
+  a->then_block = then_block;
+  a->else_block = else_block;
+
+  return (struct ast *)a;
+}
+
 
 /*----------------------------------------------------------------------------*/
 void treefree(struct ast *a)
@@ -256,45 +314,54 @@ void dumpast(struct ast *a, int level)
   struct funcdef *node_funcdef;
   struct floatval *node_float;
   struct forloop *node_forloop;
+  struct ifthenelse *node_ifelse;
   struct arrayref *node_arrayref;
   struct setopt *node_option;
   struct condition *node_cond;
   struct var_decl *node_var_decl;
 
-  printf("%2d%*s", level, 2*level, "");	/* indent to this level */
+  FILE *dmp;
+
+  if (trace_flag) {
+    dmp = trace_file;
+  } else {
+    dmp = stdout;
+  }
+
+  fprintf(dmp, "%2d%*s", level, 2*level, "");	/* indent to this level */
   level++;
 
   if (!a) {
-    printf(".\n");
+    fprintf(dmp, ".\n");
     return;
   }
 
   switch(a->nodetype) {
     case N_program:
       node_prog = (struct prog *) a;
-      printf("program\n\n");
+      fprintf(dmp, "program\n\n");
       dumpast(node_prog->opts, level);
-      printf("\n");
+      fprintf(dmp, "\n");
       dumpast(node_prog->decls, level);
       printf("\n");
       dumpast(node_prog->funcs, level);
       return;
 
     case N_functions:
-      printf("functions\n");
+      fprintf(dmp, "functions\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
 
     case N_func_def:
       node_funcdef = (struct funcdef *) a;
-      printf("funcdef %d %s\n", node_funcdef->return_type,
+      fprintf(dmp, "funcdef %d %s\n", node_funcdef->return_type,
                                 node_funcdef->name->sym->name);
       dumpast(node_funcdef->body, level);
       return;
 
     case N_options:
-      printf("options\n");
+      fprintf(dmp, "options\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
@@ -303,46 +370,50 @@ void dumpast(struct ast *a, int level)
       node_option = (struct setopt *) a;
       switch (node_option->option_flag) {
         case OPT_lv2:
-          printf("option lv2\n");
+          fprintf(dmp, "option lv2\n");
           dumpast(node_option->target,level);
           return;
         case OPT_audio_input:
-          printf("option audio input\n");
+          fprintf(dmp, "option audio input\n");
           dumpast(node_option->target,level);
+          dumpast(node_option->value1, level);
           return;
         case OPT_audio_output:
-          printf("option audio output\n");
+          fprintf(dmp, "option audio output\n");
           dumpast(node_option->target,level);
           return;
         case OPT_control_in:
-          printf("option control input\n");
+          fprintf(dmp, "option control input\n");
           dumpast(node_option->target,level);
-          return;
+          break;
         case OPT_control_out:
-          printf("option control output\n");
+          fprintf(dmp, "option control output\n");
           dumpast(node_option->target,level);
-          return;
+          break;
         case OPT_uri:
-          printf("option uri\n");
+          fprintf(dmp, "option uri\n");
           dumpast(node_option->target,level);
           return;
       }
+      dumpast(node_option->value1, level);
+      dumpast(node_option->value2, level);
+      dumpast(node_option->value3, level);
       return;
 
     case N_condition:
-      printf("cond\n");
+      fprintf(dmp, "cond\n");
       node_cond = (struct condition *) a;
       dumpast(node_cond->left, level);
-      printf("%2d%*s", level, 2*level, "");	/* indent to this level */
+      fprintf(dmp, "%2d%*s", level, 2*level, "");	/* indent to this level */
       switch (node_cond->operator) {
         case L_less_than:
-          printf(" < \n");
+          fprintf(dmp, " < \n");
           break;
         case L_greater_than:
-          printf(" > \n");
+          fprintf(dmp, " > \n");
           break;
         case L_equals:
-          printf(" = \n");
+          fprintf(dmp, " = \n");
           break;
       }
       dumpast(node_cond->right, level);
@@ -351,34 +422,42 @@ void dumpast(struct ast *a, int level)
 
     case N_float:
       node_float = (struct floatval *)a;
-      printf("float %f\n", node_float->number);
+      fprintf(dmp, "float %f\n", node_float->number);
       return;
 
     case N_array_ref:
       node_arrayref = (struct arrayref *)a;
-      printf("arrayref %s\n", node_arrayref->sym->name);
+      fprintf(dmp, "arrayref %s\n", node_arrayref->sym->name);
       dumpast(node_arrayref->index, level);
       return;
 
     case N_for_loop:
       node_forloop = (struct forloop *)a;
-      printf("for loop\n");
+      fprintf(dmp, "for loop\n");
       dumpast(node_forloop->initialize, level);
       dumpast(node_forloop->condition, level);
       dumpast(node_forloop->post, level);
       dumpast(node_forloop->codeblock, level);
       return;
 
+    case N_if_then_else:
+      node_ifelse = (struct ifthenelse *)a;
+      fprintf(dmp, "if statement\n");
+      dumpast(node_ifelse->condition, level);
+      dumpast(node_ifelse->then_block, level);
+      dumpast(node_ifelse->else_block, level);
+      return;
+
     case N_while_loop:
-      printf("while loop\n");
+      fprintf(dmp, "while loop\n");
       return;
 
     case N_until_loop:
-      printf("until loop\n");
+      fprintf(dmp, "until loop\n");
       return;
 
     case N_assignment:
-      printf("assignment\n");
+      fprintf(dmp, "assignment\n");
       node_assign = (struct symasgn *)a;
       dumpast(node_assign->target, level);
       dumpast( node_assign->value, level);
@@ -386,69 +465,70 @@ void dumpast(struct ast *a, int level)
 
     case N_integer:
       node_int = (struct intval *)a;
-      printf("int %d\n", node_int->number);
+      fprintf(dmp, "int %d\n", node_int->number);
       return;
 
     case N_statement_list:
-      printf("Statement list left side\n");
+      fprintf(dmp, "Statement list left side\n");
       dumpast(a->l, level);
-      printf("%*s", 2*level, "");	/* indent to this level */
-      printf("Statement list right side\n");
+      fprintf(dmp, "%*s", 2*level, "");	/* indent to this level */
+      fprintf(dmp, "Statement list right side\n");
       dumpast(a->r, level);
       return;
 
     case N_symbol_ref:
-      printf("Symbol Reference: %s\n", ((struct symref *)a)->sym->name);
+      fprintf(dmp, "Symbol Reference: %s\n", ((struct symref *)a)->sym->name);
       return;
 
     case N_add:
-      printf("addition\n");
+      fprintf(dmp, "addition\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
 
     case N_subtract:
-      printf("sub\n");
+      fprintf(dmp, "sub\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
 
     case N_multiply:
-      printf("mult\n");
+      fprintf(dmp, "mult\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
 
     case N_divide:
-      printf("divide\n");
+      fprintf(dmp, "divide\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
 
     case N_scope:
-      printf("scope\n");
+      fprintf(dmp, "scope\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
 
     case N_var_declarations:
-      printf("var declares\n");
+      fprintf(dmp, "var declares\n");
       dumpast(a->l, level);
       dumpast(a->r, level);
       return;
 
     case N_var_declaration:
       node_var_decl = (struct var_decl *)a;
-      printf("var decl\n");
+      fprintf(dmp, "var decl\n");
       dumpast(node_var_decl->sym, level);
       return;
 
     case N_negate:
-      printf("neg\n");
+      fprintf(dmp, "neg\n");
+      dumpast(a->l, level);
       return;
 
 
-    default: printf("bad %d\n", a->nodetype);
+    default: fprintf(dmp, "bad %d\n", a->nodetype);
       return;
   }
 

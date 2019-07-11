@@ -520,6 +520,7 @@ void finish_descriptor(LLVMValueRef uri)
 {
   if (verbose_flag) {
     fprintf(stderr, "Finishing descriptor...\n");
+    fflush(trace_file);
   }
 
   LLVMStructSetBody(struct_lv2_descriptor, (LLVMTypeRef []) {
@@ -610,14 +611,23 @@ LLVMModuleRef emit_standard(struct ast *a)
 
   LLVMBuilderRef builder = LLVMCreateBuilderInContext(global_context);
 
+  fflush(trace_file);
   emit_lv2_descriptor(mod, builder);
+  fflush(trace_file);
   emit_instantiate(mod, builder, a);
+  fflush(trace_file);
   emit_connect_port(mod, builder, a);
+  fflush(trace_file);
   emit_activate(mod, builder);
+  fflush(trace_file);
   emit_run(mod, builder);
+  fflush(trace_file);
   emit_deactivate(mod, builder);
+  fflush(trace_file);
   emit_cleanup(mod, builder);
+  fflush(trace_file);
   emit_extension_data(mod, builder);
+  fflush(trace_file);
 
   LLVMDisposeBuilder(builder);
 

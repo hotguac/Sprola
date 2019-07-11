@@ -17,6 +17,7 @@
 LLVMValueRef uri;
 
 int trace_flag = 1;
+FILE *trace_file;
 
 /*----------------------------------------------------------------------------*/
 // audio and control ports are handled in codegen_std
@@ -27,7 +28,8 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
   char *literal;
 
   if (verbose_flag) {
-    fprintf(stderr, "emitting option...\n");
+    fprintf(trace_file, "emitting option...\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -75,7 +77,8 @@ void emit_option(LLVMModuleRef mod, struct ast *a)
 void emit_options(LLVMModuleRef mod, struct ast *a)
 {
   if (verbose_flag) {
-    fprintf(stderr, "emitting options...\n");
+    fprintf(trace_file, "emitting options...\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -125,7 +128,8 @@ void emit_options(LLVMModuleRef mod, struct ast *a)
 void emit_declarations(LLVMModuleRef mod, struct ast *a)
 {
   if (verbose_flag) {
-    fprintf(stderr, "emitting declarations...\n");
+    fprintf(trace_file, "emitting declarations...\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -155,7 +159,8 @@ void add_to_run_function(LLVMModuleRef mod, struct ast *a) {
   struct funcdef *fn = (struct funcdef *) a;
 
   if (verbose_flag) {
-    fprintf(stderr, "adding to 'run' function definition...\n");
+    fprintf(trace_file, "adding to 'run' function definition...\n");
+    fflush(trace_file);
   }
 
   if (fn == NULL) {
@@ -223,7 +228,8 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
   char *name;
 
   if (verbose_flag) {
-    fprintf(stderr, "emitting function definition...\n");
+    fprintf(trace_file, "emitting function definition...\n");
+    fflush(trace_file);
   }
 
   if (fn == NULL) {
@@ -265,7 +271,8 @@ void emit_func_def(LLVMModuleRef mod, struct ast *a)
 void emit_functions(LLVMModuleRef mod, struct ast *a)
 {
   if (verbose_flag) {
-    //fprintf(stderr, "emitting functions...\n");
+    fprintf(trace_file, "emitting functions...\n");
+    fflush(trace_file);
   }
 
   if (a == NULL) {
@@ -332,10 +339,14 @@ void emit_code(struct ast *a)
 
   // Do the rest
   emit_options(mod, ((struct prog *) a)->opts);
+  fflush(trace_file);
   emit_declarations(mod, ((struct prog *) a)->decls);
+  fflush(trace_file);
   emit_functions(mod, ((struct prog *) a)->funcs);
+  fflush(trace_file);
 
   finish_descriptor(uri);
+  fflush(trace_file);
 
   if (verbose_flag) {
     fprintf(stderr, "writing module to verbose_dump.ll\n");
@@ -359,5 +370,7 @@ void emit_code(struct ast *a)
 
   LLVMDisposeModule(mod);
   LLVMShutdown();
+  fclose(trace_file);
+
   fprintf(stderr, "finished!\n");
 }

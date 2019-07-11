@@ -1,9 +1,6 @@
 cflags = `/usr/local/bin/llvm-config --cflags ` -Wall -g -O0 -c
 ldflags = `/usr/local/bin/llvm-config --ldflags ` -Wall -g -O0 -lm -lbsd
 
-always.run: sprola amp.spl
-	./sprola -v -l amp.spl
-
 sprola: sprola.tab.o lex.yy.o symbols.o ast.o \
 		codegen.o codegen_std.o codegen_ast.o codegen_ttl.o utils.o
 	clang $(ldflags) -o $@  $^ \
@@ -48,19 +45,11 @@ utils.o: utils.c *.h
 clean:
 	rm -f sprola
 	rm -f *.o
-	rm -f *.so
-	rm -f *.bc
 	rm -f lex.yy.c
 	rm -f sprola.tab.*
-	rm -f sprola.output
-	rm -f verbose_dump.ll
-	rm -f test_out.wav
+	rm -f sprola.output 
 
 tidy:
 	clang-tidy  \
 		-checks=clang-*,bug*,cert-*,mod*,llvm*,-llvm-header-guard,goog*,fuch*,perf*,port*,read* \
 		-header-filter=.* *.c *.h
-
-test:
-	cp -r amp.lv2 ~/.lv2/
-	lv2file -i exclude/test.wav -o exclude/test_out.wav --connect=1:inputL --connect=1:inputR http://example.org/sprola

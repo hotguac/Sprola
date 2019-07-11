@@ -1,0 +1,62 @@
+%option Control_In gain 1.0 -4.0 4.0
+%option Control_In depth 0.5 0.0 1.0
+%option Control_In speed 1.0
+
+%option Audio_In inputL 2.0
+%option Audio_In inputR 2.0
+%option Audio_Out outputL
+%option Audio_Out outputR
+
+//TODO(jkokosa) need to require at least a URI option and one input in one output audio port
+%option URI "http://example.org/sprola/amp"
+
+float running;
+
+void instantiate() {
+}
+
+void activate()
+{
+}
+
+void run()
+{
+	int pos;
+	float amt;
+	float adj;
+
+	amt = 1.0;
+	adj = 0.00125 * speed;
+
+	for (pos = 0; pos < Num_Samples; pos = pos + 1) {
+		outputL[pos] = inputL[pos] * gain * amt;
+		outputR[pos] = inputR[pos] * gain * amt;
+
+		amt = amt - adj;
+
+		if (amt < (1.0 - depth)) {
+		  adj = -adj;
+		}
+
+		if (amt > (1.0 + depth)) {
+		  adj = -adj;
+		}
+
+	}
+}
+
+void deactivate()
+{
+}
+
+void cleanup()
+{
+}
+
+void extension_data()
+{
+}
+
+void connect_port()
+{
+}

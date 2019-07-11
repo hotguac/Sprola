@@ -36,7 +36,8 @@ digit [0-9]
 "float" { yylval.sval = strdup(yytext); return T_Type; }
 
 "for" { return KW_For; }
-"to" { return KW_To; }
+"if" { return KW_If; }
+"else" { return KW_Else; }
 
 "="       { return T_Equal; }
 "-"       { return T_Minus; }
@@ -56,7 +57,7 @@ digit [0-9]
 
 
 {digit}+    { yylval.ival = atoi(yytext); return T_Integer; }
-({digit}+[.]{digit}*)|({digit}*[.]{digit}+) { yylval.fval = atof(yytext); return T_Float; }
+([+-]*{digit}+[.]{digit}*)|({digit}*[.]{digit}+) { yylval.fval = atof(yytext); return T_Float; }
 
 
 "//".*    { /* ignore comments for now */ }

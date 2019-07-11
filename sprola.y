@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "ast.h"
+#include "codegen.h"
 #include "sprola.h"
 #include "utils.h"
 
@@ -42,7 +43,8 @@ void yyerror(char const*);
 
 /* --------  declare tokens  ----------------------------------*/
 %token KW_For "for"
-%token KW_To "to"
+%token KW_If "if"
+%token KW_Else "else"
 
 %token T_Option
 %token T_Id
@@ -79,6 +81,7 @@ void yyerror(char const*);
 %type <a> factor term expr expra function code_block
 %type <a> functions variable_declaration variable_declarations
 %type <a> array_reference condition for_statement program
+%type <a> if_statement
 
 %type <sym> T_Id T_String
 
@@ -149,21 +152,33 @@ options
   ;
 
 option
-  : T_Option T_Audio_In T_Id
+  : T_Option T_Audio_In T_Id T_Float
     {
-      $$ = newoption(OPT_audio_input, newsymref($3));
+      $$ = newoption(OPT_audio_input, newsymref($3), newfloat($4), NULL, NULL);
     }
   | T_Option T_Audio_Out T_Id
     {
-      $$ = newoption(OPT_audio_output, newsymref($3));
+      $$ = newoption(OPT_audio_output, newsymref($3), NULL, NULL, NULL);
     }
   | T_Option T_Control_In T_Id
     {
-      $$ = newoption(OPT_control_in, newsymref($3));
+      $$ = newoption(OPT_control_in, newsymref($3), newfloat(0.5), newfloat(0.0), newfloat(1.0));
+    }
+  | T_Option T_Control_In T_Id T_Float
+    {
+      $$ = newoption(OPT_control_in, newsymref($3), newfloat($4), newfloat(0.0), newfloat(1.0));
+    }
+  | T_Option T_Control_In T_Id T_Float T_Float
+    {
+      $$ = newoption(OPT_control_in, newsymref($3), newfloat($4), newfloat($5), newfloat(1.0));
+    }
+  | T_Option T_Control_In T_Id T_Float T_Float T_Float
+    {
+      $$ = newoption(OPT_control_in, newsymref($3), newfloat($4), newfloat($5), newfloat($6));
     }
   | T_Option T_URI T_String
     {
-      $$ = newoption(OPT_uri, newsymref($3));
+      $$ = newoption(OPT_uri, newsymref($3), newfloat(0.0), newfloat(0.0), newfloat(0.0));
     }
   ;
 
@@ -235,6 +250,10 @@ statement
     {
     $$ = $1;
     }
+  | if_statement
+    {
+    $$ = $1;
+    }
   ;
 
 assignment
@@ -260,6 +279,14 @@ condition
     {
       $$ = newlessthan($1, $3);
     }
+  | expr T_GreaterThan expr
+    {
+      $$ = newgreaterthan($1, $3);
+    }
+  | expr T_Equal expr
+    {
+      $$ = newequals($1, $3);
+    }
   ;
 
 for_statement
@@ -268,6 +295,17 @@ for_statement
     assignment T_CloseP code_block
     {
       $$ = newforloop($3, $5, $7, $9);
+    }
+  ;
+
+if_statement
+  : KW_If T_OpenP condition T_CloseP code_block
+    {
+      $$ = newifelse($3, $5, NULL);
+    }
+  | KW_If T_OpenP condition T_CloseP code_block KW_Else code_block
+    {
+      $$ = newifelse($3, $5, $7);
     }
   ;
 
@@ -396,6 +434,15 @@ int main(int argc, char **argv)
   }
 
   build_names(current_filename, &names);
+
+  trace_file = fopen(names.trace_filename, "w");
+  fprintf(trace_file,"trace filename %s\n\n", names.trace_filename);
+  
+  trace_flag = 1;
+
+  if (trace_file == NULL) {
+    fprintf(stderr, "error opening trace_file '%s'\n" , names.trace_filename);
+  }
 
   yyparse();
 }

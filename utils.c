@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "codegen.h"
 #include "sprola.h"
 #include "utils.h"
 
@@ -29,13 +30,17 @@ int build_names(char *path, struct plugin_filenames *names)
 
   strlcpy(names->bc_filename, names->plugin_name, MAX_FILENAME_SIZE);
   strlcpy(names->ll_filename, names->plugin_name, MAX_FILENAME_SIZE);
+  strlcpy(names->trace_filename, names->plugin_name, MAX_FILENAME_SIZE);
   strlcpy(names->bundle_dirname, names->plugin_name, MAX_FILENAME_SIZE);
 
+  strlcat(names->trace_filename, ".trace", MAX_FILENAME_SIZE);
   size_t x = strlcat(names->bc_filename, ".bc", MAX_FILENAME_SIZE);
   int y = strlen(names->bc_filename);
+
   if (x > y) {
     printf("WTF! %zu %d\n",x, y);
   }
+
   strlcat(names->ll_filename, ".ll", MAX_FILENAME_SIZE);
   strlcat(names->bundle_dirname, ".lv2/", MAX_FILENAME_SIZE);
 
@@ -188,6 +193,7 @@ struct port_info *info;
 
 void add_port_info(struct ast *a) {
   int found;
+  struct setopt *option;
 
   if (a == NULL) {
     return;
@@ -202,8 +208,8 @@ void add_port_info(struct ast *a) {
       add_port_info(a->r);
       break;
     case N_option:
-
-      switch (((struct setopt *)a)->option_flag) {
+      option = (struct setopt *) a;
+      switch (option->option_flag) {
         case OPT_audio_input:
           strlcpy(info->port[info->num_ports].direction, PORT_DIRECTION_IN, MAX_PORT_ATTR_SIZE);
           strlcpy(info->port[info->num_ports].data_type, PORT_TYPE_AUDIO, MAX_PORT_ATTR_SIZE);
@@ -230,7 +236,57 @@ void add_port_info(struct ast *a) {
       }
 
       if (found) {
-        struct ast *target = ((struct setopt *)a)->target;
+
+        //TODO(jkokosa) refactor out a function
+        if (option->value1 == NULL) {
+          info->port[info->num_ports].def = 0.5;
+        } else {
+          switch (option->value1->nodetype) {
+            case N_float:
+              if (trace_flag) {
+                fprintf(trace_file, "found float for option value1\n");
+              }
+
+              info->port[info->num_ports].def = ((struct floatval *) option->value1)->number;
+              break;
+            default:
+              fprintf(stderr, "expected float found %d\n", option->value1->nodetype);
+          }
+        }
+
+        if (option->value2 == NULL) {
+          info->port[info->num_ports].min = 0.0;
+        } else {
+          switch (option->value2->nodetype) {
+            case N_float:
+              if (trace_flag) {
+                fprintf(trace_file, "found float for option value2\n");
+              }
+
+              info->port[info->num_ports].min = ((struct floatval *) option->value2)->number;
+              break;
+            default:
+              fprintf(stderr, "expected float found %d\n", option->value2->nodetype);
+          }
+        }
+
+        if (option->value3 == NULL) {
+          info->port[info->num_ports].max = 1.0;
+        } else {
+          switch (option->value3->nodetype) {
+            case N_float:
+              if (trace_flag) {
+                fprintf(trace_file, "found float for option value3\n");
+              }
+
+              info->port[info->num_ports].max = ((struct floatval *) option->value3)->number;
+              break;
+            default:
+              fprintf(stderr, "expected float found %d\n", option->value3->nodetype);
+          }
+        }
+
+        struct ast *target = option->target;
         if (target->nodetype != N_symbol_ref) {
           fprintf(stderr, "Error - expected N_symbol_ref found %d\n", target->nodetype);
           exit(1);
@@ -273,4 +329,11 @@ void dump_current_function(LLVMBuilderRef builder) {
   fprintf(stderr, "------------------------------------\n");
   fprintf(stderr, "%s\n", LLVMPrintValueToString(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder))));
   fprintf(stderr, "------------------------------------\n");
+}
+
+void trace(char *message) {
+  if (trace_flag) {
+    fprintf(trace_file, "%s", message);
+    fflush(trace_file);
+  }
 }

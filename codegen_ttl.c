@@ -143,9 +143,9 @@ void emit_plugin_ttl(LLVMModuleRef mod, struct ast *a, struct plugin_filenames *
     if ((strcmp(info->port[num].data_type, PORT_TYPE_CONTROL) == 0) &&
         (strcmp(info->port[num].direction, PORT_DIRECTION_IN) == 0)) {
           //TODO(jkokosa) specify these values on %option lines
-          fprintf(fd, "\t\t\tlv2:default 1.5 ;\n");
-          fprintf(fd, "\t\t\tlv2:minimum 0.0 ;\n");
-          fprintf(fd, "\t\t\tlv2:maximum +10.0 ;\n");
+          fprintf(fd, "\t\t\tlv2:default %f ;\n", info->port[num].def);
+          fprintf(fd, "\t\t\tlv2:minimum %f ;\n", info->port[num].min);
+          fprintf(fd, "\t\t\tlv2:maximum %f ;\n", info->port[num].max);
         }
 
     if ((num+1) < info->num_ports) {

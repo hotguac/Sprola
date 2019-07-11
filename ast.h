@@ -19,6 +19,7 @@ enum node_types {
   N_symbol_ref,
   N_array_ref,
   N_statement_list,
+  N_if_then_else,
   N_for_loop,
   N_while_loop,
   N_until_loop,
@@ -72,6 +73,9 @@ struct setopt {
   enum node_types nodetype;     /* type N_option */
   enum option_flags option_flag; /* which option */
   struct ast *target;           /* symbol        */
+  struct ast* value1;
+  struct ast* value2;
+  struct ast* value3;
 };
 
 struct intval {
@@ -122,6 +126,13 @@ struct forloop {
   struct ast *codeblock;        /* statements */
 };
 
+struct ifthenelse {
+  enum node_types nodetype;			/* type N_if_then_else */
+  struct ast *condition;        /* expression */
+  struct ast *then_block;        /* statements */
+  struct ast *else_block;        /* statements */
+};
+
 struct prog {
   enum node_types nodetype;			/* type N_for_loop */
   struct ast *opts;       /* options */
@@ -147,9 +158,12 @@ struct ast *newfloat(float f);
 struct ast *newvardecl(char *type, struct ast *s);
 struct ast *newsymref(struct symbol *s);
 struct ast *newforloop(struct ast *init, struct ast *cond, struct ast *post, struct ast *block);
+struct ast *newifelse(struct ast *cond, struct ast *then_block, struct ast *else_block);
 struct ast *newlessthan(struct ast *left, struct ast *right);
+struct ast *newgreaterthan(struct ast *left, struct ast *right);
+struct ast *newequals(struct ast *left, struct ast *right);
 struct ast *newfunction(int return_type, struct ast* name, struct ast* code);
-struct ast *newoption(enum option_flags flag, struct ast* sym);
+struct ast *newoption(enum option_flags flag, struct ast* sym, struct ast* value1, struct ast* value2, struct ast* value3);
 
 /* delete and free an AST */
 void treefree(struct ast * a);

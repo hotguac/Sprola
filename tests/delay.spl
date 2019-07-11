@@ -1,0 +1,59 @@
+%option Control_In attenuation 0.40 0.0 1.0
+%option Control_In delay 0.015625 0.0 1.0
+
+%option Audio_In inputL 2.0
+%option Audio_In inputR 2.0
+%option Audio_Out outputL
+%option Audio_Out outputR
+
+//TODO(jkokosa) need to require at least a URI option and one input in one output audio port
+%option URI "http://example.org/sprola/delay"
+
+float running;
+
+void instantiate() {
+}
+
+void activate()
+{
+}
+
+void run()
+{
+	int offset;
+	int pos;
+	float echo;
+	int offset_pos;
+
+	offset = Num_Samples * delay;
+
+	for (pos = 0; pos < Num_Samples -1; pos = pos + 1) {
+		offset_pos = pos - offset;
+
+		if (offset_pos < 0) {
+			echo = 0.0;
+		} else {
+			echo = (inputL[offset_pos] + inputR[offset_pos]) / 2.0;
+		}
+
+		outputL[pos] = inputL[pos] + (echo * attenuation);
+		outputR[pos] = inputR[pos] + (echo * attenuation);
+	}
+
+}
+
+void deactivate()
+{
+}
+
+void cleanup()
+{
+}
+
+void extension_data()
+{
+}
+
+void connect_port()
+{
+}

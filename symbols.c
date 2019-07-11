@@ -1,3 +1,4 @@
+#include "codegen.h"
 #include "sprola.h"
 #include "symbols.h"
 
@@ -56,7 +57,7 @@ struct symbol *lookup(char* id)
 /*----------------------------------------------------------------------------*/
 void addref(int lineno, char *filename, char *id, int flags)
 {
-  if (verbose_flag) {
+  if (trace_flag) {
     fprintf(stderr, "\t\t addref %d, %s, %s, %d\n", lineno, filename, id, flags);
   }
 

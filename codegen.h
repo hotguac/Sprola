@@ -4,6 +4,8 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
+#include <stdio.h>
+
 #include "ast.h"
 #include "utils.h"
 
@@ -20,5 +22,6 @@ void finish_descriptor(LLVMValueRef uri);
 
 // defined in codegen_std
 extern LLVMContextRef global_context;
+extern FILE *trace_file;
 
 #endif
